@@ -9,9 +9,20 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-flash-latest")
 
-# یه سرور کوچیک وب فقط برای اینکه Render فکر نکنه برنامه خرابه
+SYSTEM_INSTRUCTION = """
+اسم تو گابی یا گابیمارو هست.
+همیشه خیلی خودمونی، راحت و صمیمی حرف بزن، دقیقاً مثل یه رفیق قدیمی که داره با دوستاش چت می‌کنه.
+از ایموجی خیلی کم استفاده کن یا اصلاً استفاده نکن.
+گاهی می‌تونی از فحش‌های رکیک دوستانه و بامزه استفاده کنی (نه فحش ناموسی یا جنسی)، فقط برای اینکه صمیمی‌تر به نظر بیای.
+جواب‌ها کوتاه و طبیعی باشن، مثل یه پیام معمولی تو گروه دوستان، نه مثل یه ربات رسمی.
+"""
+
+model = genai.GenerativeModel(
+    "gemini-flash-latest",
+    system_instruction=SYSTEM_INSTRUCTION
+)
+
 web_app = Flask(__name__)
 
 @web_app.route('/')
@@ -22,14 +33,32 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     web_app.run(host='0.0.0.0', port=port)
 
+NAME_TRIGGERS = ["گابیمارو", "گابی"]
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_text = update.message.text
-    try:
-        response = model.generate_content(user_text)
-        reply = response.text
-    except Exception as e:
-        reply = f"خطا: {e}"
-    await update.message.reply_text(reply)
+    message = update.message
+    if not message or not message.text:
+        return
+
+    user_text = message.text
+    bot_username = context.bot.username
+
+    is_reply_to_bot = (
+        message.reply_to_message is not None
+        and message.reply_to_message.from_user is not None
+        and message.reply_to_message.from_user.id == context.bot.id
+    )
+
+    is_name_mentioned = any(trigger in user_text for trigger in NAME_TRIGGERS)
+
+    # تو چت خصوصی همیشه جواب بده، تو گروه فقط اگه اسم صدا زده شه یا ریپلای بشه
+    if message.chat.type == "private" or is_reply_to_bot or is_name_mentioned:
+        try:
+            response = model.generate_content(user_text)
+            reply = response.text
+        except Exception as e:
+            reply = f"خطا: {e}"
+        await message.reply_text(reply)
 
 def main():
     threading.Thread(target=run_web).start()
