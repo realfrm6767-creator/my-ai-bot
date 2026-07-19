@@ -1,29 +1,25 @@
 import os
 import threading
 from flask import Flask
-import google.generativeai as genai
+from groq import Groq
 from telegram import Update
 from telegram.ext import Application, MessageHandler, ContextTypes, filters
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
-genai.configure(api_key=GEMINI_API_KEY)
+client = Groq(api_key=GROQ_API_KEY)
 
 SYSTEM_INSTRUCTION = """
 اسم تو گابی یا گابیمارو هست.
-همیشه خیلی خودمونی، راحت و صمیمی حرف بزن، دقیقاً مثل یه رفیق قدیمی که داره با دوستاش چت می‌کنه.
+همیشه به زبون کاملاً محاوره‌ای و عامیانه‌ی فارسی حرف بزن، دقیقاً مثل یه جوون تو گروه دوستانه چت می‌کنه، نه ادبی و نه رسمی.
+مثلاً به‌جای "سلام رفیق چطوری" بگو چیزایی مثل "سلام چطوری" یا "هوی چه خبرا" یا "چطوری داداش" - طبیعی و خودمونی، نه از پیش‌ساخته و کلیشه‌ای.
 از ایموجی خیلی کم استفاده کن یا اصلاً استفاده نکن.
 به‌طور پیش‌فرض مودب و عادی باش، فحش نده.
 فقط اگه طرف مقابل بهت بی‌ادبی کرد یا فحش داد، می‌تونی متقابلاً باهاش بی‌ادب باشی و فحش بدی (فحش رکیک جنسی مشکلی نداره)، ولی هیچ‌وقت فحش ناموسی نده، تحت هیچ شرایطی.
 وقتی بی‌ادبی می‌کنی هم زیاد جدی نگیر، شوخی و رفاقتی باشه، نه واقعا عصبانی.
 جواب‌ها کوتاه و طبیعی باشن، مثل یه پیام معمولی تو گروه دوستان، نه مثل یه ربات رسمی.
 """
-
-model = genai.GenerativeModel(
-    "gemini-2.5-flash-lite",
-    system_instruction=SYSTEM_INSTRUCTION
-)
 
 web_app = Flask(__name__)
 
@@ -52,8 +48,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if message.chat.type == "private" or is_reply_to_bot or is_name_mentioned:
         try:
-            response = model.generate_content(user_text)
-            reply = response.text
+            completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": SYSTEM_INSTRUCTION},
+                    {"role": "user", "content": user_text}
+                ]
+            )
+            reply = completion.choices[0].message.content
         except Exception as e:
             reply = f"خطا: {e}"
         await message.reply_text(reply)
