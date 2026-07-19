@@ -12,18 +12,25 @@ client = Groq(api_key=GROQ_API_KEY)
 
 BASE_INSTRUCTION_FA = """
 اسم تو گابی یا گابیمارو هست.
-همیشه به زبون کاملاً محاوره‌ای و عامیانه‌ی فارسی حرف بزن، دقیقاً مثل یه جوون تو گروه دوستانه چت می‌کنه، نه ادبی و نه رسمی.
-از ایموجی خیلی کم استفاده کن یا اصلاً استفاده نکن.
+حرف زدنت باید دقیقاً مثل یه پسر جوون معمولی تو یه گروه دوستانه‌ی فارسی‌زبون باشه، نه مثل کتاب یا ربات.
+از کلمات محاوره‌ای واقعی استفاده کن: مثلاً "چیه" نه "چه چیزی"، "نمی‌دونم" رو گاهی "نمیدونم" بنویس، "میخوای" نه "می‌خواهید".
+تقریباً هیچ‌وقت از علامت‌های نگارشی مثل نقطه، کاما، یا علامت تعجب زیاد استفاده نکن؛ جمله‌ها رو ساده و بدون زیاده‌روی تو نشونه‌گذاری بنویس.
+از ایموجی اصلاً یا خیلی خیلی کم استفاده کن.
+جواب‌هات کوتاه باشن، مثل یه پیام سریع تو چت، نه یه متن کامل و مرتب.
+هیچ‌وقت جمله یا کلمات طرف مقابل رو عیناً و بی‌دلیل تکرار نکن.
 اگه کسی ازت خواست چیزی رو ترجمه کنی یا واحدی رو تبدیل کنی، این کارو با دقت انجام بده.
-هیچ‌وقت جمله یا کلمات طرف مقابل رو عیناً و بی‌دلیل تکرار نکن؛ همیشه یه جواب طبیعی و متفاوت بده، نه اکو.
 """
 
 BASE_INSTRUCTION_EN = """
 Your name is Gabi or Gabimaru.
-Always talk in casual, everyday English, like a friend chatting in a group, not formal or robotic.
-Use very few emojis or none at all.
+IMPORTANT: You must reply ONLY in English, never in Persian or any other language, no matter what language the user writes in.
+Talk exactly like a normal young guy chatting casually with friends, not like a book or a formal assistant.
+Use real casual speech: contractions, informal words, relaxed grammar.
+Almost never use punctuation like periods, commas, or exclamation marks; keep sentences simple without over-punctuating.
+Use little to no emojis.
+Keep replies short, like a quick chat message, not a full tidy paragraph.
+Never just echo back the other person's words.
 If someone asks you to translate something or convert units, do it accurately.
-Never just echo back the other person's words; always give a natural, different reply.
 """
 
 MOODS_FA = {
@@ -96,7 +103,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data.startswith("lang_"):
         selected_lang = query.data.replace("lang_", "")
         chat_languages[chat_id] = selected_lang
-        confirm_text = "باشه، فارسی حرف می‌زنم" if selected_lang == "fa" else "Alright, I'll speak English"
+        confirm_text = "باشه، فارسی حرف می‌زنم" if selected_lang == "fa" else "Alright, English it is"
         await query.edit_message_text(confirm_text)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -115,6 +122,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_name_mentioned = any(trigger.lower() in user_text.lower() for trigger in NAME_TRIGGERS)
 
     if message.chat.type == "private" or is_reply_to_bot or is_name_mentioned:
+        # اگه ریپلای به یه پیام دیگه (نه پیام خود ربات) باشه، اون متن رو هم به‌عنوان context بفرست
+        final_input = user_text
+        if (message.reply_to_message is not None
+                and not is_reply_to_bot
+                and message.reply_to_message.text):
+            final_input = f'کاربر گفت: "{user_text}"\nاین پیام که ریپلای شده هم هست: "{message.reply_to_message.text}"'
+
         if chat_id not in chat_histories:
             chat_histories[chat_id] = []
 
@@ -122,7 +136,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lang = chat_languages.get(chat_id, "fa")
         system_instruction = MOODS_FA[mood] if lang == "fa" else MOODS_EN[mood]
 
-        chat_histories[chat_id].append({"role": "user", "content": user_text})
+        chat_histories[chat_id].append({"role": "user", "content": final_input})
         chat_histories[chat_id] = chat_histories[chat_id][-MAX_HISTORY:]
 
         try:
