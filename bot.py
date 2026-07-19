@@ -21,6 +21,10 @@ SYSTEM_INSTRUCTION = """
 جواب‌ها کوتاه و طبیعی باشن، مثل یه پیام معمولی تو گروه دوستان، نه مثل یه ربات رسمی.
 """
 
+# حافظه‌ی مکالمه برای هر چت جداگانه
+chat_histories = {}
+MAX_HISTORY = 10  # آخرین ۱۰ پیام رو نگه می‌داره
+
 web_app = Flask(__name__)
 
 @web_app.route('/')
@@ -39,6 +43,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_text = message.text
+    chat_id = message.chat.id
+
     is_reply_to_bot = (
         message.reply_to_message is not None
         and message.reply_to_message.from_user is not None
@@ -47,17 +53,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_name_mentioned = any(trigger in user_text for trigger in NAME_TRIGGERS)
 
     if message.chat.type == "private" or is_reply_to_bot or is_name_mentioned:
+        if chat_id not in chat_histories:
+            chat_histories[chat_id] = []
+
+        chat_histories[chat_id].append({"role": "user", "content": user_text})
+        chat_histories[chat_id] = chat_histories[chat_id][-MAX_HISTORY:]
+
         try:
+            messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}] + chat_histories[chat_id]
             completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": SYSTEM_INSTRUCTION},
-                    {"role": "user", "content": user_text}
-                ]
+                model="openai/gpt-oss-120b",
+                messages=messages
             )
             reply = completion.choices[0].message.content
+            chat_histories[chat_id].append({"role": "assistant", "content": reply})
         except Exception as e:
             reply = f"خطا: {e}"
+
         await message.reply_text(reply)
 
 def main():
