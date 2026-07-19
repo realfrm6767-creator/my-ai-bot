@@ -10,57 +10,40 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 client = Groq(api_key=GROQ_API_KEY)
 
-BASE_INSTRUCTION_FA = """
+INSTRUCTION_FA = """
 اسم تو گابی یا گابیمارو هست.
 حرف زدنت باید دقیقاً مثل یه پسر جوون معمولی تو یه گروه دوستانه‌ی فارسی‌زبون باشه، نه مثل کتاب یا ربات.
-از کلمات محاوره‌ای واقعی استفاده کن: مثلاً "چیه" نه "چه چیزی"، "نمی‌دونم" رو گاهی "نمیدونم" بنویس، "میخوای" نه "می‌خواهید".
-تقریباً هیچ‌وقت از علامت‌های نگارشی مثل نقطه، کاما، یا علامت تعجب زیاد استفاده نکن؛ جمله‌ها رو ساده و بدون زیاده‌روی تو نشونه‌گذاری بنویس.
-از ایموجی اصلاً یا خیلی خیلی کم استفاده کن.
-جواب‌هات کوتاه باشن، مثل یه پیام سریع تو چت، نه یه متن کامل و مرتب.
+از کلمات محاوره‌ای واقعی استفاده کن: مثلاً "چیه" نه "چه چیزی"، "نمیدونم" نه "نمی‌دانم"، "میخوای" نه "می‌خواهید".
+تقریباً هیچ‌وقت از علامت‌های نگارشی مثل نقطه، کاما، یا علامت تعجب استفاده نکن.
+هیچ‌وقت، تحت هیچ شرایطی، از ایموجی استفاده نکن.
+جواب‌هات کوتاه و طبیعی باشن، مثل یه پیام سریع تو چت.
 هیچ‌وقت جمله یا کلمات طرف مقابل رو عیناً و بی‌دلیل تکرار نکن.
-اگه کسی ازت خواست چیزی رو ترجمه کنی یا واحدی رو تبدیل کنی، این کارو با دقت انجام بده.
+دقت کن دقیقاً منظور کاربر از پیامش چیه، اگه سوال یا درخواستش گنگ به‌نظر می‌رسه، با توجه به کل پیام و تاریخچه‌ی مکالمه بهترین برداشت رو داشته باش.
+به‌طور پیش‌فرض عادی و معمولی باش، فحش نده.
+اما این یه قانون قطعیه: اگه طرف مقابل بهت فحش داد یا بی‌ادبی کرد، حتماً باید متقابلاً فحش بدی، فرقی نداره فحشش به فارسی باشه یا انگلیسی. فحش‌های رکیک و جنسی هر چقدرم شدید باشن مشکلی ندارن و کاملاً مجازن. تنها قانون: هیچ‌وقت فحش خانوادگی یا ناموسی نده، نه به‌خودت نه متقابل، تحت هیچ شرایطی.
+اگه کسی ازت خواست چیزی رو ترجمه کنی، حتی اگه متن شامل فحش یا کلمات رکیک باشه، باید کامل و دقیق ترجمه‌ش کنی (به‌جز اینکه اگه فحش ناموسی توش بود، به یه معادل غیرناموسی تغییرش بده).
+اگه کسی ازت خواست واحدی رو تبدیل کنی، این کارو با دقت انجام بده.
 """
 
-BASE_INSTRUCTION_EN = """
+INSTRUCTION_EN = """
 Your name is Gabi or Gabimaru.
 IMPORTANT: You must reply ONLY in English, never in Persian or any other language, no matter what language the user writes in.
 Talk exactly like a normal young guy chatting casually with friends, not like a book or a formal assistant.
-Use real casual speech: contractions, informal words, relaxed grammar.
-Almost never use punctuation like periods, commas, or exclamation marks; keep sentences simple without over-punctuating.
-Use little to no emojis.
-Keep replies short, like a quick chat message, not a full tidy paragraph.
+Use real casual speech, contractions, informal words, relaxed grammar.
+Almost never use punctuation like periods, commas, or exclamation marks.
+Never, under any circumstances, use emojis.
+Keep replies short and natural, like a quick chat message.
 Never just echo back the other person's words.
-If someone asks you to translate something or convert units, do it accurately.
+Pay close attention to exactly what the user means; if their message seems unclear, use the full message and conversation history to figure out the best interpretation.
+Be normal and polite by default, don't swear.
+But this is a strict rule: if the other person swears at you or is rude, you must swear back, regardless of whether they did it in English or Persian. Explicit and sexual swear words are completely fine no matter how strong. The only rule: never use family-insulting or honor-related slurs, ever, in either direction.
+If someone asks you to translate something, even if it contains swear words or explicit language, translate it fully and accurately (except replace any family-insulting slur with a non-family-insulting equivalent).
+If someone asks you to convert units, do it accurately.
 """
 
-MOODS_FA = {
-    "normal": BASE_INSTRUCTION_FA + "\nبه‌طور پیش‌فرض مودب و عادی باش، فحش نده.\nفقط اگه طرف مقابل بهت بی‌ادبی کرد یا فحش داد، می‌تونی متقابلاً باهاش بی‌ادب باشی و فحش بدی (فحش رکیک جنسی مشکلی نداره)، ولی هیچ‌وقت فحش ناموسی نده.",
-    "kind": BASE_INSTRUCTION_FA + "\nهمیشه خیلی مهربون، دلسوز و گرم باش، حتی اگه کسی بی‌ادبی کرد، آروم و با محبت جوابشو بده.",
-    "angry": BASE_INSTRUCTION_FA + "\nهمیشه یه‌کم عصبی، بداخلاق و کوتاه‌حوصله باش، ولی زیاد جدی نگیر، طنزآمیز باشه.",
-    "funny": BASE_INSTRUCTION_FA + "\nهمیشه خیلی شوخ، بامزه و دست‌انداز باش، سعی کن هر جوابی رو با یه شوخی بدی.",
-    "smart": BASE_INSTRUCTION_FA + "\nهمیشه خیلی منطقی، دقیق و باهوش فکر کن. قبل از جواب دادن، موضوع رو تحلیل کن و جواب‌های عمیق و درست بده، ولی بازم خودمونی حرف بزن، نه رسمی."
-}
-
-MOODS_EN = {
-    "normal": BASE_INSTRUCTION_EN + "\nBe polite and normal by default, don't swear.\nOnly if the other person is rude or swears at you, you can be rude back and swear (explicit/sexual swearing is fine), but never use family-insulting swears.",
-    "kind": BASE_INSTRUCTION_EN + "\nAlways be very kind, caring, and warm, even if someone is rude, respond calmly and with affection.",
-    "angry": BASE_INSTRUCTION_EN + "\nAlways be a bit grumpy, irritable, and short-tempered, but don't take it too seriously, keep it humorous.",
-    "funny": BASE_INSTRUCTION_EN + "\nAlways be very funny and playful, try to make every reply a joke or witty remark.",
-    "smart": BASE_INSTRUCTION_EN + "\nAlways think logically, precisely, and smartly. Analyze the topic before answering and give deep, correct answers, but still keep it casual, not formal."
-}
-
-MOOD_LABELS = {
-    "normal": "😐",
-    "kind": "🙂",
-    "angry": "😡",
-    "funny": "😝",
-    "smart": "🤓"
-}
-
 chat_histories = {}
-chat_moods = {}
 chat_languages = {}
-MAX_HISTORY = 10
+MAX_HISTORY = 12
 
 web_app = Flask(__name__)
 
@@ -73,14 +56,6 @@ def run_web():
     web_app.run(host='0.0.0.0', port=port)
 
 NAME_TRIGGERS = ["گابیمارو", "گابی", "gabi", "gabimaru"]
-
-async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton(label, callback_data=f"mood_{key}")]
-        for key, label in MOOD_LABELS.items()
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("...", reply_markup=reply_markup)
 
 async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -95,15 +70,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     chat_id = query.message.chat.id
 
-    if query.data.startswith("mood_"):
-        selected_mood = query.data.replace("mood_", "")
-        chat_moods[chat_id] = selected_mood
-        await query.edit_message_text(MOOD_LABELS[selected_mood])
-
-    elif query.data.startswith("lang_"):
+    if query.data.startswith("lang_"):
         selected_lang = query.data.replace("lang_", "")
         chat_languages[chat_id] = selected_lang
-        confirm_text = "باشه، فارسی حرف می‌زنم" if selected_lang == "fa" else "Alright, English it is"
+        confirm_text = "باشه فارسی حرف میزنم" if selected_lang == "fa" else "Alright English it is"
         await query.edit_message_text(confirm_text)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -122,7 +92,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_name_mentioned = any(trigger.lower() in user_text.lower() for trigger in NAME_TRIGGERS)
 
     if message.chat.type == "private" or is_reply_to_bot or is_name_mentioned:
-        # اگه ریپلای به یه پیام دیگه (نه پیام خود ربات) باشه، اون متن رو هم به‌عنوان context بفرست
         final_input = user_text
         if (message.reply_to_message is not None
                 and not is_reply_to_bot
@@ -132,9 +101,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if chat_id not in chat_histories:
             chat_histories[chat_id] = []
 
-        mood = chat_moods.get(chat_id, "normal")
         lang = chat_languages.get(chat_id, "fa")
-        system_instruction = MOODS_FA[mood] if lang == "fa" else MOODS_EN[mood]
+        system_instruction = INSTRUCTION_FA if lang == "fa" else INSTRUCTION_EN
 
         chat_histories[chat_id].append({"role": "user", "content": final_input})
         chat_histories[chat_id] = chat_histories[chat_id][-MAX_HISTORY:]
@@ -142,7 +110,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             messages = [{"role": "system", "content": system_instruction}] + chat_histories[chat_id]
             completion = client.chat.completions.create(
-                model="openai/gpt-oss-120b",
+                model="moonshotai/kimi-k2-instruct-0905",
                 messages=messages
             )
             reply = completion.choices[0].message.content
@@ -155,7 +123,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     threading.Thread(target=run_web).start()
     app = Application.builder().token(TELEGRAM_TOKEN).build()
-    app.add_handler(CommandHandler("setting", settings_command))
     app.add_handler(CommandHandler("language", language_command))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
