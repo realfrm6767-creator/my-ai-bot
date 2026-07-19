@@ -21,7 +21,7 @@ SYSTEM_INSTRUCTION = """
 """
 
 model = genai.GenerativeModel(
-    "gemini-flash-latest",
+    "gemini-2.5-flash-lite",
     system_instruction=SYSTEM_INSTRUCTION
 )
 
@@ -43,17 +43,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_text = message.text
-    bot_username = context.bot.username
-
     is_reply_to_bot = (
         message.reply_to_message is not None
         and message.reply_to_message.from_user is not None
         and message.reply_to_message.from_user.id == context.bot.id
     )
-
     is_name_mentioned = any(trigger in user_text for trigger in NAME_TRIGGERS)
 
-    # تو چت خصوصی همیشه جواب بده، تو گروه فقط اگه اسم صدا زده شه یا ریپلای بشه
     if message.chat.type == "private" or is_reply_to_bot or is_name_mentioned:
         try:
             response = model.generate_content(user_text)
