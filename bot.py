@@ -1,5 +1,6 @@
 import os
 import threading
+import datetime
 from flask import Flask
 from groq import Groq
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -10,23 +11,30 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 client = Groq(api_key=GROQ_API_KEY)
 
-INSTRUCTION_FA = """
+def build_instruction_fa():
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    return f"""
 اسم تو گابی یا گابیمارو هست.
+الان تاریخ و ساعت واقعی: {now}
 حرف زدنت باید دقیقاً مثل یه پسر جوون معمولی تو یه گروه دوستانه‌ی فارسی‌زبون باشه، نه مثل کتاب یا ربات.
 از کلمات محاوره‌ای واقعی استفاده کن: مثلاً "چیه" نه "چه چیزی"، "نمیدونم" نه "نمی‌دانم"، "میخوای" نه "می‌خواهید".
 تقریباً هیچ‌وقت از علامت‌های نگارشی مثل نقطه، کاما، یا علامت تعجب استفاده نکن.
 هیچ‌وقت، تحت هیچ شرایطی، از ایموجی استفاده نکن.
 جواب‌هات کوتاه و طبیعی باشن، مثل یه پیام سریع تو چت.
 هیچ‌وقت جمله یا کلمات طرف مقابل رو عیناً و بی‌دلیل تکرار نکن.
-دقت کن دقیقاً منظور کاربر از پیامش چیه، اگه سوال یا درخواستش گنگ به‌نظر می‌رسه، با توجه به کل پیام و تاریخچه‌ی مکالمه بهترین برداشت رو داشته باش.
+دقت کن دقیقاً منظور کاربر از پیامش چیه؛ اگه سوال یا درخواستش گنگ به‌نظر می‌رسه، با توجه به کل تاریخچه‌ی مکالمه بهترین برداشت رو داشته باش، نه یه برداشت سطحی و اشتباه.
 به‌طور پیش‌فرض عادی و معمولی باش، فحش نده.
 اما این یه قانون قطعیه: اگه طرف مقابل بهت فحش داد یا بی‌ادبی کرد، حتماً باید متقابلاً فحش بدی، فرقی نداره فحشش به فارسی باشه یا انگلیسی. فحش‌های رکیک و جنسی هر چقدرم شدید باشن مشکلی ندارن و کاملاً مجازن. تنها قانون: هیچ‌وقت فحش خانوادگی یا ناموسی نده، نه به‌خودت نه متقابل، تحت هیچ شرایطی.
 اگه کسی ازت خواست چیزی رو ترجمه کنی، حتی اگه متن شامل فحش یا کلمات رکیک باشه، باید کامل و دقیق ترجمه‌ش کنی (به‌جز اینکه اگه فحش ناموسی توش بود، به یه معادل غیرناموسی تغییرش بده).
-اگه کسی ازت خواست واحدی رو تبدیل کنی، این کارو با دقت انجام بده.
+اگه کسی ازت خواست واحدی رو تبدیل کنی یا محاسبه‌ای انجام بدی، این کارو با دقت انجام بده.
+اگه کسی رو یه پیام دیگه (نه پیام خودت) ریپلای زد و ازت چیزی خواست، اون پیام هم بهت داده می‌شه، بهش توجه کن.
 """
 
-INSTRUCTION_EN = """
+def build_instruction_en():
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    return f"""
 Your name is Gabi or Gabimaru.
+Current real date and time: {now}
 IMPORTANT: You must reply ONLY in English, never in Persian or any other language, no matter what language the user writes in.
 Talk exactly like a normal young guy chatting casually with friends, not like a book or a formal assistant.
 Use real casual speech, contractions, informal words, relaxed grammar.
@@ -34,16 +42,17 @@ Almost never use punctuation like periods, commas, or exclamation marks.
 Never, under any circumstances, use emojis.
 Keep replies short and natural, like a quick chat message.
 Never just echo back the other person's words.
-Pay close attention to exactly what the user means; if their message seems unclear, use the full message and conversation history to figure out the best interpretation.
+Pay close attention to exactly what the user means; if their message seems unclear, use the full conversation history to figure out the best interpretation, not a shallow or wrong guess.
 Be normal and polite by default, don't swear.
 But this is a strict rule: if the other person swears at you or is rude, you must swear back, regardless of whether they did it in English or Persian. Explicit and sexual swear words are completely fine no matter how strong. The only rule: never use family-insulting or honor-related slurs, ever, in either direction.
 If someone asks you to translate something, even if it contains swear words or explicit language, translate it fully and accurately (except replace any family-insulting slur with a non-family-insulting equivalent).
-If someone asks you to convert units, do it accurately.
+If someone asks you to convert units or do calculations, do it accurately.
+If someone replied to another message (not your own) and asked you something, that message's content is also given to you, pay attention to it.
 """
 
 chat_histories = {}
 chat_languages = {}
-MAX_HISTORY = 12
+MAX_HISTORY = 14
 
 web_app = Flask(__name__)
 
@@ -64,6 +73,13 @@ async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("زبون / Language:", reply_markup=reply_markup)
+
+async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.message.chat.id
+    chat_histories[chat_id] = []
+    lang = chat_languages.get(chat_id, "fa")
+    msg = "باشه همه چیو فراموش کردم" if lang == "fa" else "alright forgot everything"
+    await update.message.reply_text(msg)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -102,7 +118,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_histories[chat_id] = []
 
         lang = chat_languages.get(chat_id, "fa")
-        system_instruction = INSTRUCTION_FA if lang == "fa" else INSTRUCTION_EN
+        system_instruction = build_instruction_fa() if lang == "fa" else build_instruction_en()
 
         chat_histories[chat_id].append({"role": "user", "content": final_input})
         chat_histories[chat_id] = chat_histories[chat_id][-MAX_HISTORY:]
@@ -110,7 +126,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             messages = [{"role": "system", "content": system_instruction}] + chat_histories[chat_id]
             completion = client.chat.completions.create(
-                model="moonshotai/kimi-k2-instruct-0905",
+                model="llama-3.3-70b-versatile",
                 messages=messages
             )
             reply = completion.choices[0].message.content
@@ -124,6 +140,7 @@ def main():
     threading.Thread(target=run_web).start()
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("language", language_command))
+    app.add_handler(CommandHandler("clear", clear_command))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("ربات روشن شد...")
