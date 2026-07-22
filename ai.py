@@ -264,3 +264,22 @@ class GroqManager:
         )
 
         return answer
+
+async def ask_ai(user_id, text):
+
+    try:
+
+        answer = GroqManager.chat(
+            user_id,
+            text
+        )
+
+        return answer
+
+    except Exception as e:
+
+        print(e)
+
+        return (
+            "❌ ارتباط با هوش مصنوعی برقرار نشد"
+        )
