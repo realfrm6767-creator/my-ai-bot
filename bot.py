@@ -2,8 +2,9 @@ import os
 import json
 import logging
 import threading
-from permissions import Permission
 
+from permissions import Permission
+from handlers import chat_handler
 from waitress import serve
 from flask import Flask
 
