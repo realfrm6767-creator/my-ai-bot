@@ -178,3 +178,104 @@ async def panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     )
 
+class OwnerManager:
+
+    @staticmethod
+    def get():
+        return SettingsManager.load()["owner"]
+
+    @staticmethod
+    def set(owner_id):
+
+        data = SettingsManager.load()
+
+        data["owner"] = owner_id
+
+        SettingsManager.save(data)
+
+class AdminManager:
+
+    @staticmethod
+    def get_all():
+        return SettingsManager.load()["admins"]
+
+    @staticmethod
+    def add(user_id):
+
+        data = SettingsManager.load()
+
+        if user_id not in data["admins"]:
+
+            data["admins"].append(user_id)
+
+            SettingsManager.save(data)
+
+    @staticmethod
+    def remove(user_id):
+
+        data = SettingsManager.load()
+
+        if user_id in data["admins"]:
+
+            data["admins"].remove(user_id)
+
+            SettingsManager.save(data)
+
+async def set_owner(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    data = SettingsManager.load()
+
+    if data["owner"] != 0:
+
+        await update.message.reply_text(
+            "❌ Owner قبلاً ثبت شده."
+        )
+
+        return
+
+    OwnerManager.set(update.effective_user.id)
+
+    await update.message.reply_text(
+        "✅ شما Owner شدید."
+    )
+
+async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if not PermissionManager.is_owner(update.effective_user.id):
+
+        await update.message.reply_text(
+            "❌ فقط Owner."
+        )
+
+        return
+
+    if len(context.args) != 1:
+
+        await update.message.reply_text(
+            "/addadmin USER_ID"
+        )
+
+        return
+
+    AdminManager.add(int(context.args[0]))
+
+    await update.message.reply_text(
+        "✅ Admin اضافه شد."
+    )
+
+async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if not PermissionManager.is_owner(update.effective_user.id):
+
+        return
+
+    if len(context.args) != 1:
+
+        return
+
+    AdminManager.remove(int(context.args[0]))
+
+    await update.message.reply_text(
+        "✅ حذف شد."
+    )
+
