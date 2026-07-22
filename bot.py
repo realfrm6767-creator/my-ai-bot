@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import threading
+from permissions import Permission
 
 from waitress import serve
 from flask import Flask
@@ -233,7 +234,7 @@ async def set_owner(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
-    OwnerManager.set(update.effective_user.id)
+    Permission.set_owner(update.effective_user.id)
 
     await update.message.reply_text(
         "✅ شما Owner شدید."
@@ -257,7 +258,7 @@ async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
-    AdminManager.add(int(context.args[0]))
+    Permission.add_admin(int(context.args[0]))
 
     await update.message.reply_text(
         "✅ Admin اضافه شد."
@@ -273,7 +274,7 @@ async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
-    AdminManager.remove(int(context.args[0]))
+    Permission.remove_admin(int(context.args[0]))
 
     await update.message.reply_text(
         "✅ حذف شد."
