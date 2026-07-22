@@ -4,7 +4,11 @@ import logging
 import threading
 
 from permissions import Permission
-from handlers import chat_handler
+from handlers import (
+    panel,
+    button_handler,
+    chat_handler,
+)
 from waitress import serve
 from flask import Flask
 
