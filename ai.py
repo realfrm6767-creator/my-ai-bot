@@ -108,3 +108,76 @@ I'm sorry
 
 Always answer naturally
 """
+
+class HistoryManager:
+
+    @staticmethod
+    def get(user_id):
+
+        if user_id not in chat_histories:
+
+            chat_histories[user_id] = []
+
+        return chat_histories[user_id]
+
+    @staticmethod
+    def clear(user_id):
+
+        chat_histories[user_id] = []
+
+    @staticmethod
+    def add(user_id, role, content):
+
+        history = HistoryManager.get(user_id)
+
+        history.append(
+            {
+                "role": role,
+                "content": content
+            }
+        )
+
+        if len(history) > MAX_HISTORY:
+
+            history.pop(0)
+
+    @staticmethod
+    def export(user_id):
+
+        return list(
+            HistoryManager.get(user_id)
+        )
+
+
+class LanguageManager:
+
+    @staticmethod
+    def get(user_id):
+
+        if user_id not in chat_languages:
+
+            chat_languages[user_id] = "fa"
+
+        return chat_languages[user_id]
+
+    @staticmethod
+    def set(user_id, language):
+
+        chat_languages[user_id] = language
+
+    @staticmethod
+    def auto_detect(text):
+
+        english = 0
+
+        for ch in text:
+
+            if "a" <= ch.lower() <= "z":
+
+                english += 1
+
+        if english >= 5:
+
+            return "en"
+
+        return "fa"
