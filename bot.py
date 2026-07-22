@@ -415,6 +415,18 @@ def build_application():
 
     )
 
+application.add_handler(
+
+    MessageHandler(
+
+        filters.TEXT & ~filters.COMMAND,
+
+        chat_handler
+
+    )
+
+)
+
     return application
 
 def main():
