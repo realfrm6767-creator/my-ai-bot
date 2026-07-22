@@ -224,7 +224,7 @@ class AdminManager:
 
 async def set_owner(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    data = SettingsManager.load()
+    data = Permission.load()
 
     if data["owner"] != 0:
 
