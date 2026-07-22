@@ -279,3 +279,162 @@ async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "✅ حذف شد."
     )
 
+def run_web():
+
+    serve(
+
+        app,
+
+        host="0.0.0.0",
+
+        port=PORT
+
+    )
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    query = update.callback_query
+
+    await query.answer()
+
+    data = query.data
+
+
+    if data == "panel_ai":
+
+        await query.edit_message_text(
+
+            "🤖 بخش هوش مصنوعی\n\n"
+
+            "این قسمت هنوز در حال ساخت است"
+
+        )
+
+        return
+
+
+    if data == "panel_settings":
+
+        await query.edit_message_text(
+
+            "⚙ تنظیمات\n\n"
+
+            "این قسمت هنوز آماده نیست"
+
+        )
+
+        return
+
+
+    if data == "panel_stats":
+
+        await query.edit_message_text(
+
+            "📊 آمار\n\n"
+
+            "بعداً اضافه می‌شود"
+
+        )
+
+        return
+
+
+    if data == "panel_help":
+
+        await query.edit_message_text(
+
+            "❓ راهنما\n\n"
+
+            "در نسخه‌های بعدی کامل می‌شود"
+
+        )
+
+        return
+
+def build_application():
+
+    application = Application.builder().token(TOKEN).build()
+
+    application.add_handler(
+
+        CommandHandler(
+
+            "panel",
+
+            panel
+
+        )
+
+    )
+
+    application.add_handler(
+
+        CommandHandler(
+
+            "setowner",
+
+            set_owner
+
+        )
+
+    )
+
+    application.add_handler(
+
+        CommandHandler(
+
+            "addadmin",
+
+            add_admin
+
+        )
+
+    )
+
+    application.add_handler(
+
+        CommandHandler(
+
+            "removeadmin",
+
+            remove_admin
+
+        )
+
+    )
+
+    application.add_handler(
+
+        CallbackQueryHandler(
+
+            button_handler
+
+        )
+
+    )
+
+    return application
+
+def main():
+
+    web_thread = threading.Thread(
+
+        target=run_web,
+
+        daemon=True
+
+    )
+
+    web_thread.start()
+
+    application = build_application()
+
+    print("Gabimaru AI X Started")
+
+    application.run_polling(
+        drop_pending_updates=True
+        )
+
+if __name__ == "__main__":
+
+    main()
