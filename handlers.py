@@ -118,3 +118,23 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         return
+
+from ai import ask_ai
+from memory import memory
+
+
+async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if not update.message:
+        return
+
+    user_id = update.effective_user.id
+    text = update.message.text
+
+    memory.add(user_id, "user", text)
+
+    response = await ask_ai(user_id, text)
+
+    memory.add(user_id, "assistant", response)
+
+    await update.message.reply_text(response)
