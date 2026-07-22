@@ -56,3 +56,50 @@ class Permission:
             Permission.is_admin(user_id)
 
         )
+
+    @staticmethod
+    def save(data):
+
+        with open(
+            SETTINGS_FILE,
+            "w",
+            encoding="utf-8"
+        ) as f:
+
+            json.dump(
+                data,
+                f,
+                ensure_ascii=False,
+                indent=4
+            )
+
+    @staticmethod
+    def set_owner(user_id):
+
+        data = Permission.load()
+
+        data["owner"] = user_id
+
+        Permission.save(data)
+
+    @staticmethod
+    def add_admin(user_id):
+
+        data = Permission.load()
+
+        if user_id not in data["admins"]:
+
+            data["admins"].append(user_id)
+
+            Permission.save(data)
+
+    @staticmethod
+    def remove_admin(user_id):
+
+        data = Permission.load()
+
+        if user_id in data["admins"]:
+
+            data["admins"].remove(user_id)
+
+            Permission.save(data)
