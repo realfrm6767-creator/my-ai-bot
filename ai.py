@@ -181,3 +181,86 @@ class LanguageManager:
             return "en"
 
         return "fa"
+
+class PromptManager:
+
+    @staticmethod
+    def build(user_id):
+
+        language = LanguageManager.get(user_id)
+
+        if language == "fa":
+
+            system = build_instruction_fa()
+
+        else:
+
+            system = build_instruction_en()
+
+        messages = [
+
+            {
+
+                "role": "system",
+
+                "content": system
+
+            }
+
+        ]
+
+        messages.extend(
+
+            HistoryManager.export(user_id)
+
+        )
+
+        return messages
+
+
+class GroqManager:
+
+    @staticmethod
+    def chat(user_id, message):
+
+        language = LanguageManager.auto_detect(message)
+
+        LanguageManager.set(user_id, language)
+
+        HistoryManager.add(
+
+            user_id,
+
+            "user",
+
+            message
+
+        )
+
+        messages = PromptManager.build(user_id)
+
+        response = client.chat.completions.create(
+
+            model="openai/gpt-oss-120b",
+
+            messages=messages,
+
+            temperature=0.8,
+
+            max_completion_tokens=700
+
+        )
+
+        answer = response.choices[0].message.content.strip()
+
+        HistoryManager.add(
+
+            user_id,
+
+            "assistant",
+
+            answer
+
+        )
+
+        return answer
