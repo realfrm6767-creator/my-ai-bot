@@ -1,8 +1,8 @@
 """
 utils/stats.py
 --------------
-ردیابی تعداد پیام‌های امروز هر کاربر در هر چت، برای نمایش در بخش
-Statistics پنل. داده‌ها در stats.json ذخیره می‌شوند.
+ردیابی تعداد پیام‌های امروز و کل هر کاربر در هر چت، برای نمایش
+در بخش Statistics پنل. داده‌ها در stats.json ذخیره می‌شوند.
 """
 
 import json
@@ -30,7 +30,7 @@ def _today() -> str:
 
 
 def record_message(chat_id: int, user_id: int) -> None:
-    """پیام امروز کاربر را در چت مربوطه ثبت می‌کند."""
+    """پیام امروز کاربر را در چت مربوطه ثبت می‌کند (برای شمارش امروز و کل)."""
     data = _load()
     chat_key, user_key, today = str(chat_id), str(user_id), _today()
 
@@ -40,22 +40,23 @@ def record_message(chat_id: int, user_id: int) -> None:
     _save(data)
 
 
+def _rank_of(counts: dict, user_key: str) -> int | None:
+    ranking = sorted(counts.items(), key=lambda item: item[1], reverse=True)
+    return next((i + 1 for i, (uid, _) in enumerate(ranking) if uid == user_key), None)
+
+
 def get_user_stats(chat_id: int, user_id: int) -> dict:
-    """تعداد پیام امروز و رتبه‌ی کاربر (بر اساس پیام‌های امروز) در همان چت."""
+    """آمار امروز و کل کاربر، به‌همراه رتبه‌ی هرکدام در همان چت."""
     data = _load()
     chat_key, user_key, today = str(chat_id), str(user_id), _today()
     chat_data = data.get(chat_key, {})
 
-    today_counts = {
-        uid: days.get(today, 0)
-        for uid, days in chat_data.items()
-    }
-    my_count = today_counts.get(user_key, 0)
-
-    ranking = sorted(today_counts.items(), key=lambda item: item[1], reverse=True)
-    rank = next((i + 1 for i, (uid, _) in enumerate(ranking) if uid == user_key), None)
+    today_counts = {uid: days.get(today, 0) for uid, days in chat_data.items()}
+    total_counts = {uid: sum(days.values()) for uid, days in chat_data.items()}
 
     return {
-        "today_count": my_count,
-        "rank": rank,
+        "today_count": today_counts.get(user_key, 0),
+        "today_rank": _rank_of(today_counts, user_key),
+        "total_count": total_counts.get(user_key, 0),
+        "total_rank": _rank_of(total_counts, user_key),
     }
