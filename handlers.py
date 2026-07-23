@@ -3,10 +3,9 @@ handlers.py
 -----------
 تمام Handlerهای تلگرام (دستورات، دکمه‌ها، پیام‌های چت) فقط اینجا نوشته می‌شوند.
 
-نکته مهم: تا قبل از اتصال AI (مرحله پنجم)، تمام دستورات باید دقیقاً
-با متن مشخص‌شده مطابقت داشته باشند (تطبیق دقیق، نه شامل‌بودن). یعنی
-«گابی پنل رو باز کن» یا «گابیمارو تنظیم مدیر کن» شناخته نمی‌شوند؛
-فقط عین «پنل»، «تنظیم مدیر» و... قبول است.
+نکته: دستورات ثابت (پنل، تنظیم/حذف مالک/مدیر) باید دقیقاً با متن مشخص
+مطابقت داشته باشند. هر پیام دیگری که همراه نام ربات یا ریپلای روی
+ربات باشد، به ai.py سپرده می‌شود تا هوش مصنوعی پاسخ دهد.
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -22,6 +21,7 @@ from permissions import (
     remove_admin,
 )
 from utils.stats import record_message, get_user_stats
+from ai import generate_response
 
 WAKE_WORDS = ["گابیمارو", "گابی"]
 
@@ -155,7 +155,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     if action == "help":
-        text = "راهنما — به‌زودی تکمیل می‌شود."
+        text = (
+            "راهنمای گابیمارو 🤖\n\n"
+            "کافیه اسمم رو صدا بزنی (گابی یا گابیمارو) و هرچی می‌خوای بگی، "
+            "یا مستقیم روی پیام‌هام ریپلای کنی 🙂"
+        )
         await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id))
 
     elif action == "statistics":
@@ -171,7 +175,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     elif action == "ai":
         if is_main_owner(owner_id) or is_owner(owner_id):
-            text = "بخش AI — در مرحله پنجم تکمیل می‌شود."
+            text = "🤖 هوش مصنوعی گابیمارو فعاله! کافیه اسمم رو صدا بزنی و سوالت رو بپرسی."
         else:
             text = "🚫 این بخش فقط برای مالک قابل دسترسی است."
         await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id))
@@ -248,10 +252,12 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await show_panel(update, context)
         return
 
-    # TODO (مرحله پنجم): اتصال به ai.py برای پاسخ هوشمند به سایر پیام‌ها
-    return
+    # هر پیام دیگری (حتی صدا زدن خالی ربات بدون درخواست خاص) به AI سپرده می‌شود
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    ai_reply = generate_response(content if content else text)
+    await update.message.reply_text(ai_reply)
 
 
-# TODO (مرحله پنجم): اتصال بخش AI به ai.py
+# TODO (مرحله ششم): ارسال تاریخچه مکالمه (در صورت روشن بودن Memory) به generate_response
 # TODO (مرحله هفتم): تکمیل واقعی بخش Settings
 # TODO (آینده): افزودن دکمه‌های جدید به build_main_keyboard()
