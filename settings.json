@@ -1,0 +1,8 @@
+{
+  "admins": [],
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "language": "auto",
+  "memory": true,
+  "temperature": 0.7
+}
