@@ -1,14 +1,13 @@
 """
 utils/stats.py
 --------------
-ردیابی ساده تعداد پیام‌های هر کاربر در هر گروه/چت،
-برای نمایش در بخش Statistics پنل (تعداد پیام و رتبه در گروه).
-
-داده‌ها در stats.json ذخیره می‌شوند (مشابه settings.json، مستقل از آن).
+ردیابی تعداد پیام‌های امروز هر کاربر در هر چت، برای نمایش در بخش
+Statistics پنل. داده‌ها در stats.json ذخیره می‌شوند.
 """
 
 import json
 import os
+from datetime import date
 
 STATS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "stats.json")
 
@@ -26,27 +25,37 @@ def _save(data: dict) -> None:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def _today() -> str:
+    return date.today().isoformat()
+
+
 def record_message(chat_id: int, user_id: int) -> None:
-    """هر پیام جدید کاربر در یک چت را ثبت می‌کند."""
+    """پیام امروز کاربر را در چت مربوطه ثبت می‌کند."""
     data = _load()
-    chat_key, user_key = str(chat_id), str(user_id)
+    chat_key, user_key, today = str(chat_id), str(user_id), _today()
+
     data.setdefault(chat_key, {})
-    data[chat_key][user_key] = data[chat_key].get(user_key, 0) + 1
+    data[chat_key].setdefault(user_key, {})
+    data[chat_key][user_key][today] = data[chat_key][user_key].get(today, 0) + 1
     _save(data)
 
 
 def get_user_stats(chat_id: int, user_id: int) -> dict:
-    """تعداد پیام و رتبه‌ی کاربر در همان چت را برمی‌گرداند."""
+    """تعداد پیام امروز و رتبه‌ی کاربر (بر اساس پیام‌های امروز) در همان چت."""
     data = _load()
-    chat_key, user_key = str(chat_id), str(user_id)
+    chat_key, user_key, today = str(chat_id), str(user_id), _today()
     chat_data = data.get(chat_key, {})
-    count = chat_data.get(user_key, 0)
 
-    ranking = sorted(chat_data.items(), key=lambda item: item[1], reverse=True)
+    today_counts = {
+        uid: days.get(today, 0)
+        for uid, days in chat_data.items()
+    }
+    my_count = today_counts.get(user_key, 0)
+
+    ranking = sorted(today_counts.items(), key=lambda item: item[1], reverse=True)
     rank = next((i + 1 for i, (uid, _) in enumerate(ranking) if uid == user_key), None)
 
     return {
-        "message_count": count,
+        "today_count": my_count,
         "rank": rank,
-        "total_users_in_chat": len(chat_data),
     }
