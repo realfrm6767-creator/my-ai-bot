@@ -180,76 +180,74 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.edit_message_text("بخش نامشخص.", reply_markup=build_back_keyboard(owner_id))
 
 
+def build_user_mention(user_id: int, name: str) -> str:
+    """ساخت منشن قابل‌کلیک؛ فقط اسم نمایش داده می‌شود و به پروفایل کاربر لینک می‌خورد."""
+    return f'<a href="tg://user?id={user_id}">{name}</a>'
+
+
+def format_role_message(mention: str, body: str) -> str:
+    """فرمت پیام‌های مدیریت نقش."""
+    return f"▸ {mention}\n    {body}"
+
+
 async def handle_role_command(update: Update, context: ContextTypes.DEFAULT_TYPE, command: str) -> None:
     reply = update.message.reply_to_message
     if reply is None or reply.from_user is None:
-        await update.message.reply_text("باید روی پیام همون شخص ریپلای کنی 🙂")
+        await update.message.reply_text("باید روی پیام همون شخص ریپلای کنی.")
         return
 
     actor_id = update.effective_user.id
     target_user = reply.from_user
     target_id = target_user.id
-    name = target_user.first_name
+    mention = build_user_mention(target_id, target_user.first_name)
 
     if command == "set_owner":
         if not is_main_owner(actor_id):
             await update.message.reply_text(
-                "⛔️ <b>دسترسی نداری</b>\nفقط مالک اصلی می‌تونه مالک جدید تنظیم کنه.",
-                parse_mode="HTML",
+                "▸ دسترسی محدود\n    فقط مالک اصلی می‌تواند مالک تنظیم کند.", parse_mode="HTML"
             )
             return
         if add_owner(target_id):
-            await update.message.reply_text(
-                f"👑 <b>{name}</b> به‌عنوان <b>مالک</b> تنظیم شد.",
-                parse_mode="HTML",
-            )
+            text = format_role_message(mention, "به‌عنوان مالک تنظیم شد.")
         else:
-            await update.message.reply_text("⚠️ این کاربر از قبل مالکه (یا مالک اصلیه).")
+            text = format_role_message(mention, "در حال حاضر مالک است.")
+        await update.message.reply_text(text, parse_mode="HTML")
 
     elif command == "remove_owner":
         if not is_main_owner(actor_id):
             await update.message.reply_text(
-                "⛔️ <b>دسترسی نداری</b>\nفقط مالک اصلی می‌تونه مالک رو حذف کنه.",
-                parse_mode="HTML",
+                "▸ دسترسی محدود\n    فقط مالک اصلی می‌تواند مالک را حذف کند.", parse_mode="HTML"
             )
             return
         if remove_owner(target_id):
-            await update.message.reply_text(
-                f"❌ مالکیت <b>{name}</b> حذف شد.",
-                parse_mode="HTML",
-            )
+            text = format_role_message(mention, "از لیست مالکان ربات حذف شد.")
         else:
-            await update.message.reply_text("⚠️ این کاربر مالک نبود.")
+            text = format_role_message(mention, "در لیست مالکان ربات وجود ندارد.")
+        await update.message.reply_text(text, parse_mode="HTML")
 
     elif command == "set_admin":
         if not (is_main_owner(actor_id) or is_owner(actor_id)):
             await update.message.reply_text(
-                "⛔️ <b>دسترسی نداری</b>\nفقط مالک اصلی یا مالک‌ها می‌تونن مدیر تنظیم کنن.",
-                parse_mode="HTML",
+                "▸ دسترسی محدود\n    فقط مالک اصلی یا مالک‌ها می‌توانند مدیر تنظیم کنند.", parse_mode="HTML"
             )
             return
         if add_admin(target_id):
-            await update.message.reply_text(
-                f"🛡 <b>{name}</b> به‌عنوان <b>مدیر</b> تنظیم شد.",
-                parse_mode="HTML",
-            )
+            text = format_role_message(mention, "به‌عنوان مدیر تنظیم شد.")
         else:
-            await update.message.reply_text("⚠️ این کاربر از قبل مدیره.")
+            text = format_role_message(mention, "در لیست مدیران ربات وجود دارد.")
+        await update.message.reply_text(text, parse_mode="HTML")
 
     elif command == "remove_admin":
         if not (is_main_owner(actor_id) or is_owner(actor_id)):
             await update.message.reply_text(
-                "⛔️ <b>دسترسی نداری</b>\nفقط مالک اصلی یا مالک‌ها می‌تونن مدیر رو حذف کنن.",
-                parse_mode="HTML",
+                "▸ دسترسی محدود\n    فقط مالک اصلی یا مالک‌ها می‌توانند مدیر را حذف کنند.", parse_mode="HTML"
             )
             return
         if remove_admin(target_id):
-            await update.message.reply_text(
-                f"❌ مدیریت <b>{name}</b> حذف شد.",
-                parse_mode="HTML",
-            )
+            text = format_role_message(mention, "از لیست مدیران ربات حذف شد.")
         else:
-            await update.message.reply_text("⚠️ این کاربر مدیر نبود.")
+            text = format_role_message(mention, "در لیست مدیران ربات وجود ندارد.")
+        await update.message.reply_text(text, parse_mode="HTML")
 
 
 async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
