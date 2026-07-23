@@ -1,4 +1,3 @@
-
 """
 handlers.py
 -----------
@@ -83,15 +82,14 @@ def format_rank(rank: int | None) -> str:
     return f"#{rank}"
 
 
-async def build_statistics_text(context: ContextTypes.DEFAULT_TYPE, update: Update, target_user_id: int) -> tuple[str, str | None]:
-    """ساخت متن آمار کاربر (امروز + کل) طبق فرمت مشخص‌شده."""
+async def build_statistics_text(context: ContextTypes.DEFAULT_TYPE, update: Update, target_user_id: int) -> str:
+    """ساخت متن آمار کاربر (امروز + کل) طبق فرمت مشخص‌شده - بدون ارسال عکس."""
     query = update.callback_query
     chat_id = query.message.chat.id
 
     user = await context.bot.get_chat(target_user_id)
     photos = await context.bot.get_user_profile_photos(target_user_id, limit=1)
     photo_count = photos.total_count
-    photo_file_id = photos.photos[0][-1].file_id if photo_count > 0 else None
 
     full_name = " ".join(filter(None, [user.first_name, user.last_name])) or "نامشخص"
     username = f"@{user.username}" if user.username else "ندارد"
@@ -104,7 +102,7 @@ async def build_statistics_text(context: ContextTypes.DEFAULT_TYPE, update: Upda
     today_rank_fmt = format_rank(stats["today_rank"])
     total_rank_fmt = format_rank(stats["total_rank"])
 
-    text = (
+    return (
         f"◂ نام کاربر : {full_name}\n"
         f"◂ آیدی عددی : {target_user_id}\n"
         f"◂ یوزرنیم : {username}\n"
@@ -116,8 +114,6 @@ async def build_statistics_text(context: ContextTypes.DEFAULT_TYPE, update: Upda
         f"◂ کل پیام ها : {total_count_fmt} عدد\n"
         f"◂ رتبه در کل پیام ها : {total_rank_fmt}"
     )
-
-    return text, photo_file_id
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -142,10 +138,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id))
 
     elif action == "statistics":
-        text, photo_file_id = await build_statistics_text(context, update, owner_id)
+        text = await build_statistics_text(context, update, owner_id)
         await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id))
-        if photo_file_id:
-            await context.bot.send_photo(chat_id=query.message.chat.id, photo=photo_file_id)
 
     elif action == "settings":
         if is_owner(owner_id) or is_admin(owner_id):
