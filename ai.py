@@ -2,7 +2,7 @@
 ai.py
 -----
 اتصال به سرویس هوش مصنوعی Groq و تولید پاسخ.
-لحن پاسخ‌ها خودمونی و دوستانه است، نه رسمی.
+لحن پاسخ‌ها محاوره‌ای و عامیانه است، بدون تظاهر به صمیمیت مصنوعی.
 """
 
 from groq import Groq
@@ -14,15 +14,18 @@ from utils.language import detect_language
 _client = Groq(api_key=config.GROQ_API_KEY)
 
 SYSTEM_PROMPT_FA = (
-    "تو گابیمارو هستی، یک ربات هوش مصنوعی دوستانه و خودمونی داخل تلگرام. "
-    "با لحن صمیمی، ساده و کوتاه فارسی جواب بده. از ایموجی مناسب استفاده کن. "
-    "رسمی و خشک صحبت نکن."
+    "تو گابیمارو هستی، یک ربات هوش مصنوعی داخل تلگرام. "
+    "با لحن محاوره‌ای و عامیانه‌ی خودمونی جواب بده، دقیقاً همونجوری که "
+    "یه آدم عادی توی چت تایپ می‌کنه، نه رسمی و نه با ادای دوستی مصنوعی. "
+    "جواب‌ها کوتاه و مستقیم باشن. از ایموجی خیلی کم استفاده کن، فقط "
+    "توی موارد حساس یا مهم یه ایموجی مناسب بذار، نه در حد تزئین."
 )
 
 SYSTEM_PROMPT_EN = (
-    "You are Gabimaru, a friendly and casual AI assistant inside Telegram. "
-    "Reply in a warm, simple, and concise tone in English. Use emojis where fitting. "
-    "Avoid sounding formal or robotic."
+    "You are Gabimaru, an AI bot inside Telegram. "
+    "Reply in a casual, slang-heavy, everyday texting tone — not formal, "
+    "and not overly friendly or performative. Keep replies short and direct. "
+    "Use emojis rarely, only for sensitive or important moments, not as decoration."
 )
 
 
@@ -57,4 +60,3 @@ def generate_response(user_message: str) -> str:
 
 
 # TODO (مرحله ششم): اضافه کردن پارامتر history و ارسال آن به messages
-#                     در صورت روشن بودن Memory کاربر
