@@ -5,19 +5,17 @@ bot.py
     1. ساخت Application تلگرام
     2. ثبت Handlerها (از handlers.py)
     3. اجرای Polling
-    4. اجرای Flask + Waitress (برای بیدار نگه داشتن سرویس روی Render)
-
-هیچ منطق دیگری نباید داخل این فایل نوشته شود.
+    4. اجرای Flask + Waitress
 """
 
 import threading
 
 from flask import Flask
 from waitress import serve
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 
 import config
-from handlers import start_command
+from handlers import start_command, panel, button_handler
 
 
 def run_web_server() -> None:
@@ -33,17 +31,15 @@ def run_web_server() -> None:
 
 def main() -> None:
     """نقطه ورود اصلی برنامه."""
-    # اجرای Flask + Waitress در یک Thread جدا (همزمان با Polling)
     web_thread = threading.Thread(target=run_web_server, daemon=True)
     web_thread.start()
 
-    # ساخت Application تلگرام
     application = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
 
-    # ثبت Handlerها (فعلاً فقط /start برای تست مرحله دوم)
     application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("panel", panel))
+    application.add_handler(CallbackQueryHandler(button_handler))
 
-    # اجرای Polling
     application.run_polling()
 
 
