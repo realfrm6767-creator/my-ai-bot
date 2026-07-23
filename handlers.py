@@ -3,9 +3,15 @@ handlers.py
 -----------
 تمام Handlerهای تلگرام (دستورات، دکمه‌ها، پیام‌های چت) فقط اینجا نوشته می‌شوند.
 
-به‌جای دستورات اسلش (/panel)، ربات با تشخیص عبارات طبیعی فعال می‌شود.
-کاربر باید نام ربات (گابی یا گابیمارو) را همراه درخواست بگوید، مثلاً:
-    "گابی پنل" یا "گابیمارو پنل"
+قانون فعال‌سازی ربات (بدون دستور اسلش):
+    - اگر پیام شامل نام ربات (گابی/گابیمارو) باشد -> بررسی می‌شود.
+    - اگر پیام مستقیماً ریپلای روی پیام خود ربات باشد -> بررسی می‌شود.
+    - در غیر این صورت (در گروه‌ها به‌خصوص) ربات کاملاً سکوت می‌کند.
+
+فعلاً فقط دستور «پنل» شناخته شده است. تشخیص هوشمند بقیه‌ی پیام‌ها
+(شامل پاسخ به سلام ساده یا سوالات عمومی) در مرحله پنجم (AI) اضافه
+می‌شود؛ تا آن زمان عمداً هیچ پاسخ ثابتی داده نمی‌شود تا با پاسخ واقعی
+هوش مصنوعی تداخل نکند.
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -18,6 +24,22 @@ WAKE_WORDS = ["گابیمارو", "گابی"]
 def has_wake_word(text: str) -> bool:
     """بررسی می‌کند که آیا پیام حاوی نام ربات هست یا نه."""
     return any(wake_word in text for wake_word in WAKE_WORDS)
+
+
+def strip_wake_word(text: str) -> str:
+    """نام ربات را از پیام حذف می‌کند تا فقط محتوای اصلی درخواست باقی بماند."""
+    cleaned = text
+    for wake_word in WAKE_WORDS:
+        cleaned = cleaned.replace(wake_word, "")
+    return cleaned.strip()
+
+
+async def is_reply_to_bot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """بررسی می‌کند که آیا کاربر روی پیام قبلی خود ربات ریپلای کرده است."""
+    reply = update.message.reply_to_message
+    if reply is None or reply.from_user is None:
+        return False
+    return reply.from_user.id == context.bot.id
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -37,7 +59,7 @@ def build_panel_keyboard() -> InlineKeyboardMarkup:
 
 
 async def show_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """نمایش پنل اصلی (با گفتن «گابی پنل» یا «گابیمارو پنل»)."""
+    """نمایش پنل اصلی."""
     await update.message.reply_text(
         "پنل مدیریت ربات 👇",
         reply_markup=build_panel_keyboard(),
@@ -63,26 +85,34 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     مسیریاب اصلی پیام‌های متنی معمولی.
-    اگر پیام شامل نام ربات (گابی/گابیمارو) باشد، بسته به کلمه‌ی بعدی
-    به بخش مربوطه هدایت می‌شود. در غیر این صورت (در مراحل بعدی) به ai.py می‌رود.
     """
     text = update.message.text or ""
 
-    if not has_wake_word(text):
-        # TODO (مرحله پنجم): اگر پیام عادی بود (بدون نام ربات)، به ai.py فرستاده شود
+    wake_word_present = has_wake_word(text)
+    replied_to_bot = await is_reply_to_bot(update, context)
+
+    if not wake_word_present and not replied_to_bot:
+        # نه اسم ربات گفته شده، نه ریپلای روی ربات -> سکوت کامل
         return
 
-    # تشخیص دستور بر اساس کلمه‌ی همراه نام ربات
-    if "پنل" in text:
+    content = strip_wake_word(text) if wake_word_present else text.strip()
+
+    if "پنل" in content:
         await show_panel(update, context)
         return
 
-    # TODO: اضافه کردن سایر عبارات (راهنما، آمار فوتبال، قیمت ارز و ...) در مراحل آینده
-    await update.message.reply_text(
-        "متوجه نشدم چی خواستی. فعلاً فقط «پنل» رو می‌شناسم 🙂"
-    )
+    # TODO (مرحله پنجم): تنها دستور فعلی «پنل» است. سایر پیام‌ها
+    #                     (شامل صدا زدن ساده‌ی ربات بدون درخواست خاص،
+    #                     یا سوالات عمومی، یا ریپلای بدون دستور مشخص)
+    #                     عمداً فعلاً بدون پاسخ رها می‌شوند تا در مرحله
+    #                     پنجم مستقیماً به ai.py وصل شده و خود هوش مصنوعی
+    #                     پاسخ بدهد. هیچ پاسخ ثابتی اینجا اضافه نشود.
+    return
 
 
 # TODO (مرحله چهارم): اتصال show_panel() و button_handler() به permissions.py
-# TODO (مرحله پنجم): اتصال بخش AI در chat_handler() به ai.py
+# TODO (مرحله پنجم): اتصال بخش بالا در chat_handler() به ai.py برای پاسخ
+#                     هوشمند به هر پیامی غیر از «پنل» (شامل سلام ساده،
+#                     سوالات عمومی، فوتبال، ارز، طلا و ...) با ذکر منبع
+#                     در صورت نیاز (مثلاً FotMob)
 # TODO (مرحله هفتم): تکمیل واقعی بخش Settings داخل button_handler()
