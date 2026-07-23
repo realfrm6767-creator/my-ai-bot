@@ -1,13 +1,8 @@
+
 """
 handlers.py
 -----------
 تمام Handlerهای تلگرام (دستورات، دکمه‌ها، پیام‌های چت) فقط اینجا نوشته می‌شوند.
-
-قوانین پنل:
-    - هرکسی می‌تواند پنل خودش را باز کند (پنل شخصی هر کاربر است).
-    - فقط همان کاربری که پنل را باز کرده می‌تواند روی دکمه‌هایش کلیک کند.
-    - هر بخش (AI, Settings, Statistics, Help) صفحه‌ی جدا با دکمه
-      «🔙 بازگشت» دارد؛ از یک بخش مستقیم به بخش دیگر نمی‌رود.
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -17,6 +12,14 @@ from permissions import is_owner, is_admin
 from utils.stats import record_message, get_user_stats
 
 WAKE_WORDS = ["گابیمارو", "گابی"]
+
+FULLWIDTH_DIGITS = str.maketrans("0123456789", "０１２３４５６７８９")
+
+RANK_LABELS = {
+    1: "🥇 نفر اول",
+    2: "🥈 نفر دوم",
+    3: "🥉 نفر سوم",
+}
 
 
 def has_wake_word(text: str) -> bool:
@@ -41,12 +44,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text("سلام! ربات با موفقیت روی Render اجرا شد. ✅")
 
 
-# ---------------------------------------------------------------------------
-# ساخت کیبوردها
-# callback_data همیشه شامل آیدی صاحب پنل است: "action:owner_id"
-# تا فقط خودش بتواند روی دکمه‌ها کلیک کند.
-# ---------------------------------------------------------------------------
-
 def build_main_keyboard(owner_id: int) -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton("🤖 AI", callback_data=f"ai:{owner_id}")],
@@ -58,12 +55,11 @@ def build_main_keyboard(owner_id: int) -> InlineKeyboardMarkup:
 
 
 def build_back_keyboard(owner_id: int) -> InlineKeyboardMarkup:
-    keyboard = [[InlineKeyboardButton("🔙 بازگشت", callback_data=f"back:{owner_id}")]]
+    keyboard = [[InlineKeyboardButton("Back", callback_data=f"back:{owner_id}")]]
     return InlineKeyboardMarkup(keyboard)
 
 
 async def show_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """پنل برای همه‌ی کاربران باز می‌شود؛ ولی هرکس فقط پنل خودش را می‌بیند/کنترل می‌کند."""
     owner_id = update.effective_user.id
     await update.message.reply_text(
         "پنل مدیریت ربات 👇",
@@ -71,40 +67,66 @@ async def show_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     )
 
 
-def build_statistics_text(update: Update, target_user_id: int) -> str:
-    """ساخت متن آمار شخصی کاربر."""
+def get_user_role_label(user_id: int) -> str:
+    if is_owner(user_id):
+        return "مالک"
+    if is_admin(user_id):
+        return "ادمین"
+    return "کاربر عادی"
+
+
+def format_rank(rank: int | None) -> str:
+    if rank is None:
+        return "نامشخص"
+    if rank in RANK_LABELS:
+        return RANK_LABELS[rank]
+    return f"#{rank}"
+
+
+async def build_statistics_text(context: ContextTypes.DEFAULT_TYPE, update: Update, target_user_id: int) -> tuple[str, str | None]:
+    """ساخت متن آمار کاربر (امروز + کل) طبق فرمت مشخص‌شده."""
     query = update.callback_query
     chat_id = query.message.chat.id
 
-    stats = get_user_stats(chat_id, target_user_id)
-    rank_text = f"#{stats['rank']}" if stats["rank"] else "نامشخص"
+    user = await context.bot.get_chat(target_user_id)
+    photos = await context.bot.get_user_profile_photos(target_user_id, limit=1)
+    photo_count = photos.total_count
+    photo_file_id = photos.photos[0][-1].file_id if photo_count > 0 else None
 
-    return (
-        "📊 آمار شما\n\n"
-        f"🆔 آیدی عددی: {target_user_id}\n"
-        f"💬 تعداد پیام در این چت: {stats['message_count']}\n"
-        f"🏆 رتبه در این چت: {rank_text}"
+    full_name = " ".join(filter(None, [user.first_name, user.last_name])) or "نامشخص"
+    username = f"@{user.username}" if user.username else "ندارد"
+    role = get_user_role_label(target_user_id)
+
+    stats = get_user_stats(chat_id, target_user_id)
+    today_count_fmt = str(stats["today_count"]).translate(FULLWIDTH_DIGITS)
+    total_count_fmt = str(stats["total_count"]).translate(FULLWIDTH_DIGITS)
+    photo_count_fmt = str(photo_count).translate(FULLWIDTH_DIGITS)
+    today_rank_fmt = format_rank(stats["today_rank"])
+    total_rank_fmt = format_rank(stats["total_rank"])
+
+    text = (
+        f"◂ نام کاربر : {full_name}\n"
+        f"◂ آیدی عددی : {target_user_id}\n"
+        f"◂ یوزرنیم : {username}\n"
+        f"◂ تعداد تصاویر پروفایل : {photo_count_fmt} عدد\n"
+        f"◂ مقام کاربر : {role}\n\n"
+        "─┅━ آمار کاربر ━┅─\n"
+        f"◂ پیام های امروز : {today_count_fmt} عدد\n"
+        f"◂ رتبه در تعداد پیام : {today_rank_fmt}\n"
+        f"◂ کل پیام ها : {total_count_fmt} عدد\n"
+        f"◂ رتبه در کل پیام ها : {total_rank_fmt}"
     )
 
-
-async def send_profile_photo(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int) -> None:
-    """در صورت وجود عکس پروفایل، آن را به‌صورت یک پیام جدا ارسال می‌کند."""
-    photos = await context.bot.get_user_profile_photos(user_id, limit=1)
-    if photos.total_count > 0:
-        file_id = photos.photos[0][-1].file_id
-        await context.bot.send_photo(chat_id=chat_id, photo=file_id)
+    return text, photo_file_id
 
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """مدیریت کلیک روی دکمه‌های پنل، با کنترل مالکیت پنل و سطح دسترسی."""
     query = update.callback_query
     clicker_id = query.from_user.id
 
-    # جدا کردن action و owner_id از callback_data
     action, _, owner_id_str = query.data.partition(":")
     owner_id = int(owner_id_str)
 
-    # فقط صاحب پنل اجازه‌ی کلیک دارد
     if clicker_id != owner_id:
         await query.answer("این پنل مال شما نیست 🙅‍♂️ خودتون یه پنل جدید باز کنید.", show_alert=True)
         return
@@ -117,31 +139,33 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     if action == "help":
         text = "راهنما — به‌زودی تکمیل می‌شود."
+        await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id))
 
     elif action == "statistics":
-        text = build_statistics_text(update, owner_id)
-        await send_profile_photo(context, query.message.chat.id, owner_id)
+        text, photo_file_id = await build_statistics_text(context, update, owner_id)
+        await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id))
+        if photo_file_id:
+            await context.bot.send_photo(chat_id=query.message.chat.id, photo=photo_file_id)
 
     elif action == "settings":
         if is_owner(owner_id) or is_admin(owner_id):
             text = "بخش Settings — در مرحله هفتم تکمیل می‌شود."
         else:
             text = "🚫 شما به بخش Settings دسترسی ندارید."
+        await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id))
 
     elif action == "ai":
         if is_owner(owner_id):
             text = "بخش AI — در مرحله پنجم تکمیل می‌شود."
         else:
             text = "🚫 این بخش فقط برای مالک ربات قابل دسترسی است."
+        await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id))
 
     else:
-        text = "بخش نامشخص."
-
-    await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id))
+        await query.edit_message_text("بخش نامشخص.", reply_markup=build_back_keyboard(owner_id))
 
 
 async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """مسیریاب اصلی پیام‌های متنی معمولی."""
     text = update.message.text or ""
 
     record_message(update.effective_chat.id, update.effective_user.id)
@@ -164,5 +188,4 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 # TODO (مرحله پنجم): اتصال بخش AI به ai.py
 # TODO (مرحله هفتم): تکمیل واقعی بخش Settings
-# TODO (آینده): افزودن دکمه‌های جدید به build_main_keyboard()،
-#               هر بخش جدید باید صفحه جدا با build_back_keyboard() داشته باشد
+# TODO (آینده): افزودن دکمه‌های جدید به build_main_keyboard()
