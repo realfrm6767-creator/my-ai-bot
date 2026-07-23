@@ -2,12 +2,25 @@
 handlers.py
 -----------
 تمام Handlerهای تلگرام (دستورات، دکمه‌ها، پیام‌های چت) فقط اینجا نوشته می‌شوند.
+
+نکته مهم: تا قبل از اتصال AI (مرحله پنجم)، تمام دستورات باید دقیقاً
+با متن مشخص‌شده مطابقت داشته باشند (تطبیق دقیق، نه شامل‌بودن). یعنی
+«گابی پنل رو باز کن» یا «گابیمارو تنظیم مدیر کن» شناخته نمی‌شوند؛
+فقط عین «پنل»، «تنظیم مدیر» و... قبول است.
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from permissions import is_owner, is_admin
+from permissions import (
+    is_main_owner,
+    is_owner,
+    is_admin,
+    add_owner,
+    remove_owner,
+    add_admin,
+    remove_admin,
+)
 from utils.stats import record_message, get_user_stats
 
 WAKE_WORDS = ["گابیمارو", "گابی"]
@@ -18,6 +31,13 @@ RANK_LABELS = {
     1: "🥇 نفر اول",
     2: "🥈 نفر دوم",
     3: "🥉 نفر سوم",
+}
+
+ROLE_COMMANDS = {
+    "تنظیم مالک": "set_owner",
+    "حذف مالک": "remove_owner",
+    "تنظیم مدیر": "set_admin",
+    "حذف مدیر": "remove_admin",
 }
 
 
@@ -67,10 +87,12 @@ async def show_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 def get_user_role_label(user_id: int) -> str:
+    if is_main_owner(user_id):
+        return "مالک اصلی"
     if is_owner(user_id):
         return "مالک"
     if is_admin(user_id):
-        return "ادمین"
+        return "مدیر"
     return "کاربر عادی"
 
 
@@ -83,7 +105,6 @@ def format_rank(rank: int | None) -> str:
 
 
 async def build_statistics_text(context: ContextTypes.DEFAULT_TYPE, update: Update, target_user_id: int) -> str:
-    """ساخت متن آمار کاربر (امروز + کل) طبق فرمت مشخص‌شده - بدون ارسال عکس."""
     query = update.callback_query
     chat_id = query.message.chat.id
 
@@ -142,21 +163,68 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id))
 
     elif action == "settings":
-        if is_owner(owner_id) or is_admin(owner_id):
+        if is_main_owner(owner_id) or is_owner(owner_id) or is_admin(owner_id):
             text = "بخش Settings — در مرحله هفتم تکمیل می‌شود."
         else:
             text = "🚫 شما به بخش Settings دسترسی ندارید."
         await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id))
 
     elif action == "ai":
-        if is_owner(owner_id):
+        if is_main_owner(owner_id) or is_owner(owner_id):
             text = "بخش AI — در مرحله پنجم تکمیل می‌شود."
         else:
-            text = "🚫 این بخش فقط برای مالک ربات قابل دسترسی است."
+            text = "🚫 این بخش فقط برای مالک قابل دسترسی است."
         await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id))
 
     else:
         await query.edit_message_text("بخش نامشخص.", reply_markup=build_back_keyboard(owner_id))
+
+
+async def handle_role_command(update: Update, context: ContextTypes.DEFAULT_TYPE, command: str) -> None:
+    reply = update.message.reply_to_message
+    if reply is None or reply.from_user is None:
+        await update.message.reply_text("باید روی پیام همون شخص ریپلای کنی 🙂")
+        return
+
+    actor_id = update.effective_user.id
+    target_user = reply.from_user
+    target_id = target_user.id
+
+    if command == "set_owner":
+        if not is_main_owner(actor_id):
+            await update.message.reply_text("🚫 فقط مالک اصلی می‌تواند مالک جدید تنظیم کند.")
+            return
+        if add_owner(target_id):
+            await update.message.reply_text(f"✅ {target_user.first_name} به‌عنوان مالک تنظیم شد.")
+        else:
+            await update.message.reply_text("این کاربر از قبل مالک است (یا مالک اصلی است).")
+
+    elif command == "remove_owner":
+        if not is_main_owner(actor_id):
+            await update.message.reply_text("🚫 فقط مالک اصلی می‌تواند مالک را حذف کند.")
+            return
+        if remove_owner(target_id):
+            await update.message.reply_text(f"✅ مالکیت {target_user.first_name} حذف شد.")
+        else:
+            await update.message.reply_text("این کاربر مالک نبود.")
+
+    elif command == "set_admin":
+        if not (is_main_owner(actor_id) or is_owner(actor_id)):
+            await update.message.reply_text("🚫 فقط مالک اصلی یا مالک‌ها می‌توانند مدیر تنظیم کنند.")
+            return
+        if add_admin(target_id):
+            await update.message.reply_text(f"✅ {target_user.first_name} به‌عنوان مدیر تنظیم شد.")
+        else:
+            await update.message.reply_text("این کاربر از قبل مدیر است.")
+
+    elif command == "remove_admin":
+        if not (is_main_owner(actor_id) or is_owner(actor_id)):
+            await update.message.reply_text("🚫 فقط مالک اصلی یا مالک‌ها می‌توانند مدیر را حذف کنند.")
+            return
+        if remove_admin(target_id):
+            await update.message.reply_text(f"✅ مدیریت {target_user.first_name} حذف شد.")
+        else:
+            await update.message.reply_text("این کاربر مدیر نبود.")
 
 
 async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -172,7 +240,11 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     content = strip_wake_word(text) if wake_word_present else text.strip()
 
-    if "پنل" in content:
+    if content in ROLE_COMMANDS:
+        await handle_role_command(update, context, ROLE_COMMANDS[content])
+        return
+
+    if content == "پنل":
         await show_panel(update, context)
         return
 
