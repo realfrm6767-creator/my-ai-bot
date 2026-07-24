@@ -18,7 +18,7 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 DEFAULT_PROVIDER = "groq"
 DEFAULT_MODEL = "openai/gpt-oss-120b"
 DEFAULT_TEMPERATURE = 0.7
-DEFAULT_LANGUAGE = "auto"  # auto | fa | en
+DEFAULT_LANGUAGE = "fa"
 DEFAULT_MEMORY_STATE = True
 
 # مسیر فایل تنظیمات پویا
