@@ -14,6 +14,7 @@ from permissions import (
 )
 from settings import load_settings, update_setting
 from utils.stats import record_message, get_user_stats, get_leaderboard
+from utils.status import get_status_data
 from ai import generate_response
 from memory import get_history, add_message, is_memory_enabled, clear_chat_memory
 from utils.locales import t, get_role_commands, get_panel_trigger, SUPPORTED_LANGUAGES, LANGUAGE_NAMES
@@ -64,6 +65,7 @@ def build_main_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(t("btn_leaderboard", lang), callback_data=f"leaderboard_total:{owner_id}"),
+            InlineKeyboardButton(t("btn_status", lang), callback_data=f"status:{owner_id}"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -212,6 +214,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         scope = "total" if action == "leaderboard_total" else "today"
         text = await build_leaderboard_text(context, query.message.chat.id, lang, scope)
         await query.edit_message_text(text, reply_markup=build_leaderboard_keyboard(owner_id, lang, scope), parse_mode="HTML")
+        return
+
+    if action == "status":
+        if not (is_main_owner(owner_id) or is_owner(owner_id)):
+            await query.edit_message_text(t("status_access_denied", lang), reply_markup=build_back_keyboard(owner_id, lang))
+            return
+        data = get_status_data()
+        text = (
+            f"📈 {t('status_header', lang)}\n\n"
+            f"◂ {t('status_uptime', lang)} : {data['uptime']}\n"
+            f"◂ {t('status_chats', lang)} : {format_number(data['total_chats'], lang)}\n"
+            f"◂ {t('status_users', lang)} : {format_number(data['total_users'], lang)}"
+        )
+        await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id, lang))
         return
 
     if action == "ai":
