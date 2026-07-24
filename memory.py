@@ -63,3 +63,11 @@ def clear_history(chat_id: int, user_id: int) -> None:
     if key in data:
         del data[key]
         _save(data)
+
+def clear_chat_memory(chat_id: int) -> None:
+    """تمام تاریخچه‌های مکالمه‌ی مربوط به یک چت (همه کاربران آن) را پاک می‌کند."""
+    data = _load()
+    prefix = f"{chat_id}:"
+    for key in [k for k in data if k.startswith(prefix)]:
+        del data[key]
+    _save(data)
