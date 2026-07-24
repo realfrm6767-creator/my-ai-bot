@@ -13,7 +13,7 @@ from permissions import (
     add_owner, remove_owner, add_admin, remove_admin,
 )
 from settings import load_settings, update_setting
-from utils.stats import record_message, get_user_stats
+from utils.stats import record_message, get_user_stats, get_leaderboard
 from ai import generate_response
 from memory import get_history, add_message, is_memory_enabled, clear_chat_memory
 from utils.locales import t, get_role_commands, get_panel_trigger, SUPPORTED_LANGUAGES, LANGUAGE_NAMES
@@ -54,10 +54,17 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 def build_main_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton(t("btn_ai", lang), callback_data=f"ai:{owner_id}")],
-        [InlineKeyboardButton(t("btn_settings", lang), callback_data=f"settings:{owner_id}")],
-        [InlineKeyboardButton(t("btn_statistics", lang), callback_data=f"statistics:{owner_id}")],
-        [InlineKeyboardButton(t("btn_help", lang), callback_data=f"help:{owner_id}")],
+        [
+            InlineKeyboardButton(t("btn_ai", lang), callback_data=f"ai:{owner_id}"),
+            InlineKeyboardButton(t("btn_settings", lang), callback_data=f"settings:{owner_id}"),
+        ],
+        [
+            InlineKeyboardButton(t("btn_statistics", lang), callback_data=f"statistics:{owner_id}"),
+            InlineKeyboardButton(t("btn_help", lang), callback_data=f"help:{owner_id}"),
+        ],
+        [
+            InlineKeyboardButton(t("btn_leaderboard", lang), callback_data=f"leaderboard_total:{owner_id}"),
+        ],
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -80,6 +87,16 @@ def build_settings_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
 def build_language_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
     keyboard = [[InlineKeyboardButton(LANGUAGE_NAMES[code], callback_data=f"setlang_{code}:{owner_id}")] for code in SUPPORTED_LANGUAGES]
     keyboard.append([InlineKeyboardButton(t("btn_back", lang), callback_data=f"settings:{owner_id}")])
+    return InlineKeyboardMarkup(keyboard)
+
+
+def build_leaderboard_keyboard(owner_id: int, lang: str, current_scope: str) -> InlineKeyboardMarkup:
+    other_scope = "today" if current_scope == "total" else "total"
+    other_label = t("leaderboard_scope_today", lang) if other_scope == "today" else t("leaderboard_scope_total", lang)
+    keyboard = [
+        [InlineKeyboardButton(f"🔄 {other_label}", callback_data=f"leaderboard_{other_scope}:{owner_id}")],
+        [InlineKeyboardButton(t("btn_back", lang), callback_data=f"back:{owner_id}")],
+    ]
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -141,6 +158,30 @@ async def build_statistics_text(context: ContextTypes.DEFAULT_TYPE, update: Upda
     )
 
 
+async def build_leaderboard_text(context: ContextTypes.DEFAULT_TYPE, chat_id: int, lang: str, scope: str) -> str:
+    entries = get_leaderboard(chat_id, scope=scope, limit=10)
+    scope_label = t("leaderboard_scope_today", lang) if scope == "today" else t("leaderboard_scope_total", lang)
+    header = f"🏆 {t('leaderboard_header', lang)} — {scope_label}\n\n"
+
+    if not entries:
+        return header + t("leaderboard_empty", lang)
+
+    medal_map = {1: "🥇", 2: "🥈", 3: "🥉"}
+    lines = []
+    for i, (user_id_str, count) in enumerate(entries, start=1):
+        user_id = int(user_id_str)
+        try:
+            user = await context.bot.get_chat(user_id)
+            name = user.first_name or str(user_id)
+        except Exception:
+            name = str(user_id)
+        prefix = medal_map.get(i, f"#{i}")
+        mention = f'<a href="tg://user?id={user_id}">{name}</a>'
+        lines.append(f"{prefix} {mention} — {format_number(count, lang)}")
+
+    return header + "\n".join(lines)
+
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     clicker_id = query.from_user.id
@@ -165,6 +206,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if action == "statistics":
         text = await build_statistics_text(context, update, owner_id, lang)
         await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id, lang))
+        return
+
+    if action in ("leaderboard_total", "leaderboard_today"):
+        scope = "total" if action == "leaderboard_total" else "today"
+        text = await build_leaderboard_text(context, query.message.chat.id, lang, scope)
+        await query.edit_message_text(text, reply_markup=build_leaderboard_keyboard(owner_id, lang, scope), parse_mode="HTML")
         return
 
     if action == "ai":
