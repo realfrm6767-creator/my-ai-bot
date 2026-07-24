@@ -12,6 +12,7 @@ LANGUAGE_NAMES = {"fa": "فارسی", "en": "English", "ar": "العربية", "
 TRANSLATIONS = {
     "fa": {
         "btn_ai": "🤖 AI", "btn_settings": "⚙️ تنظیمات", "btn_statistics": "📊 آمار", "btn_help": "❓ راهنما",
+        "btn_leaderboard": "🏆 لیدربورد",
         "btn_back": "بازگشت",
         "panel_intro": "پنل مدیریت ربات 👇",
         "not_your_panel": "این پنل مال شما نیست. خودتون یه پنل جدید باز کنید.",
@@ -46,9 +47,13 @@ TRANSLATIONS = {
         "role_main_owner": "مالک اصلی", "role_owner": "مالک", "role_admin": "مدیر", "role_regular": "کاربر عادی",
         "rank_1": "🥇 نفر اول", "rank_2": "🥈 نفر دوم", "rank_3": "🥉 نفر سوم", "rank_unknown": "نامشخص",
         "ai_error": "یه مشکلی موقع پاسخ دادن پیش اومد، دوباره امتحان کن.",
+        "leaderboard_header": "لیدربورد گروه",
+        "leaderboard_empty": "هنوز کسی توی این گروه پیامی نداده.",
+        "leaderboard_scope_today": "امروز", "leaderboard_scope_total": "کل زمان",
     },
     "en": {
         "btn_ai": "🤖 AI", "btn_settings": "⚙️ Settings", "btn_statistics": "📊 Statistics", "btn_help": "❓ Help",
+        "btn_leaderboard": "🏆 Leaderboard",
         "btn_back": "Back",
         "panel_intro": "Bot control panel 👇",
         "not_your_panel": "This panel isn't yours. Open your own panel.",
@@ -83,9 +88,13 @@ TRANSLATIONS = {
         "role_main_owner": "Main Owner", "role_owner": "Owner", "role_admin": "Admin", "role_regular": "Regular User",
         "rank_1": "🥇 1st place", "rank_2": "🥈 2nd place", "rank_3": "🥉 3rd place", "rank_unknown": "unknown",
         "ai_error": "Something went wrong while replying, try again.",
+        "leaderboard_header": "Group Leaderboard",
+        "leaderboard_empty": "No one has sent a message in this group yet.",
+        "leaderboard_scope_today": "Today", "leaderboard_scope_total": "All Time",
     },
     "ar": {
         "btn_ai": "🤖 الذكاء الاصطناعي", "btn_settings": "⚙️ الإعدادات", "btn_statistics": "📊 الإحصائيات", "btn_help": "❓ المساعدة",
+        "btn_leaderboard": "🏆 المتصدرون",
         "btn_back": "رجوع",
         "panel_intro": "لوحة تحكم البوت 👇",
         "not_your_panel": "هذه اللوحة ليست لك. افتح لوحتك الخاصة.",
@@ -120,9 +129,13 @@ TRANSLATIONS = {
         "role_main_owner": "المالك الرئيسي", "role_owner": "مالك", "role_admin": "مدير", "role_regular": "مستخدم عادي",
         "rank_1": "🥇 المرتبة الأولى", "rank_2": "🥈 المرتبة الثانية", "rank_3": "🥉 المرتبة الثالثة", "rank_unknown": "غير معروف",
         "ai_error": "حدث خطأ أثناء الرد، حاول مرة أخرى.",
+        "leaderboard_header": "متصدرو المجموعة",
+        "leaderboard_empty": "لم يرسل أحد رسالة في هذه المجموعة بعد.",
+        "leaderboard_scope_today": "اليوم", "leaderboard_scope_total": "كل الوقت",
     },
     "ru": {
         "btn_ai": "🤖 ИИ", "btn_settings": "⚙️ Настройки", "btn_statistics": "📊 Статистика", "btn_help": "❓ Помощь",
+        "btn_leaderboard": "🏆 Лидерборд",
         "btn_back": "Назад",
         "panel_intro": "Панель управления ботом 👇",
         "not_your_panel": "Эта панель не ваша. Откройте свою собственную панель.",
@@ -157,6 +170,9 @@ TRANSLATIONS = {
         "role_main_owner": "Главный владелец", "role_owner": "Владелец", "role_admin": "Админ", "role_regular": "Обычный пользователь",
         "rank_1": "🥇 1 место", "rank_2": "🥈 2 место", "rank_3": "🥉 3 место", "rank_unknown": "неизвестно",
         "ai_error": "Что-то пошло не так, попробуй ещё раз.",
+        "leaderboard_header": "Лидерборд группы",
+        "leaderboard_empty": "В этой группе пока никто не писал.",
+        "leaderboard_scope_today": "Сегодня", "leaderboard_scope_total": "За всё время",
     },
 }
 
