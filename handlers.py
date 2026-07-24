@@ -18,6 +18,7 @@ from permissions import (
 )
 from utils.stats import record_message, get_user_stats
 from ai import generate_response
+from memory import get_history, add_message, is_memory_enabled
 
 WAKE_WORDS = ["گابیمارو", "گابی"]
 
@@ -271,12 +272,22 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await show_panel(update, context)
         return
 
-    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-    ai_reply = generate_response(content if content else text)
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    message_for_ai = content if content else text
+
+    memory_on = is_memory_enabled()
+    history = get_history(chat_id, user_id) if memory_on else None
+
+    await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+    ai_reply = generate_response(message_for_ai, history)
     await update.message.reply_text(ai_reply)
 
+    if memory_on:
+        add_message(chat_id, user_id, "user", message_for_ai)
+        add_message(chat_id, user_id, "assistant", ai_reply)
 
-# TODO (مرحله ششم): ارسال تاریخچه مکالمه (در صورت روشن بودن Memory) به generate_response
-# TODO (مرحله هفتم): تکمیل واقعی بخش Settings
+
+# TODO (مرحله هفتم): تکمیل واقعی بخش Settings (شامل روشن/خاموش کردن Memory)
 # TODO (آینده): افزودن دکمه‌های جدید به build_main_keyboard()، و کارکرد واقعی
 #               تعویض مدل/provider داخل بخش AI پنل
