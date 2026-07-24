@@ -29,10 +29,10 @@ SYSTEM_PROMPT_EN = (
 )
 
 
-def generate_response(user_message: str) -> str:
+def generate_response(user_message: str, history: list[dict] | None = None) -> str:
     """
-    تولید پاسخ هوش مصنوعی بر اساس پیام کاربر.
-    فعلاً بدون تاریخچه مکالمه (History) کار می‌کند؛ اتصال Memory در مرحله ششم اضافه می‌شود.
+    تولید پاسخ هوش مصنوعی بر اساس پیام کاربر و تاریخچه مکالمه (در صورت وجود).
+    history لیستی از دیکشنری‌های {"role": "user"/"assistant", "content": "..."} است.
     """
     settings = load_settings()
     model = settings.get("model", config.DEFAULT_MODEL)
@@ -41,14 +41,16 @@ def generate_response(user_message: str) -> str:
     language = detect_language(user_message)
     system_prompt = SYSTEM_PROMPT_FA if language == "fa" else SYSTEM_PROMPT_EN
 
+    messages = [{"role": "system", "content": system_prompt}]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": user_message or "سلام"})
+
     try:
         completion = _client.chat.completions.create(
             model=model,
             temperature=temperature,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message or "سلام"},
-            ],
+            messages=messages,
         )
         return completion.choices[0].message.content.strip()
     except Exception:
@@ -57,6 +59,3 @@ def generate_response(user_message: str) -> str:
             if language == "fa"
             else "Something went wrong while generating a response, please try again 🙏"
         )
-
-
-# TODO (مرحله ششم): اضافه کردن پارامتر history و ارسال آن به messages
