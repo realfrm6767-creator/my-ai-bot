@@ -2,7 +2,7 @@
 utils/stats.py
 --------------
 ردیابی تعداد پیام‌های امروز و کل هر کاربر در هر چت، برای نمایش
-در بخش Statistics پنل. داده‌ها در stats.json ذخیره می‌شوند.
+در بخش Statistics و Leaderboard پنل. داده‌ها در stats.json ذخیره می‌شوند.
 """
 
 import json
@@ -60,3 +60,22 @@ def get_user_stats(chat_id: int, user_id: int) -> dict:
         "total_count": total_counts.get(user_key, 0),
         "total_rank": _rank_of(total_counts, user_key),
     }
+
+
+def get_leaderboard(chat_id: int, scope: str = "total", limit: int = 10) -> list[tuple[str, int]]:
+    """
+    تاپ کاربران یک چت بر اساس تعداد پیام.
+    scope: "today" یا "total"
+    خروجی: لیستی از (user_id به‌صورت رشته, تعداد پیام)
+    """
+    data = _load()
+    chat_data = data.get(str(chat_id), {})
+
+    if scope == "today":
+        today = _today()
+        counts = {uid: days.get(today, 0) for uid, days in chat_data.items()}
+    else:
+        counts = {uid: sum(days.values()) for uid, days in chat_data.items()}
+
+    ranking = sorted(counts.items(), key=lambda item: item[1], reverse=True)
+    return [(uid, count) for uid, count in ranking if count > 0][:limit]
