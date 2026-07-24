@@ -16,6 +16,7 @@ from permissions import (
 from settings import load_settings, update_setting
 from utils.stats import record_message, get_user_stats, get_leaderboard
 from utils.status import get_status_data
+from utils.tictactoe import start_game, get_board, end_game, apply_user_move, bot_move, check_winner
 from ai import generate_response
 from memory import get_history, add_message, is_memory_enabled, clear_chat_memory
 from utils.locales import t, get_role_commands, get_panel_trigger, SUPPORTED_LANGUAGES, LANGUAGE_NAMES
@@ -71,6 +72,7 @@ def build_main_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(t("btn_admin_list", lang), callback_data=f"admin_list:{owner_id}"),
+            InlineKeyboardButton(t("btn_games", lang), callback_data=f"games:{owner_id}"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -124,6 +126,35 @@ def build_confirm_keyboard(owner_id: int, lang: str, target: str) -> InlineKeybo
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
+
+
+def build_games_menu_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
+    keyboard = [
+        [InlineKeyboardButton(t("btn_tictactoe", lang), callback_data=f"ttt_start:{owner_id}")],
+        [InlineKeyboardButton(t("btn_back", lang), callback_data=f"back:{owner_id}")],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def build_ttt_keyboard(board: list[str], owner_id: int, over: bool) -> InlineKeyboardMarkup:
+    symbols = {" ": " ", "X": "❌", "O": "⭕"}
+    rows = []
+    for r in range(3):
+        row = []
+        for c in range(3):
+            i = r * 3 + c
+            label = symbols[board[i]]
+            if board[i] == " " and not over:
+                cb = f"ttt_move_{i}:{owner_id}"
+            else:
+                cb = f"ttt_noop:{owner_id}"
+            row.append(InlineKeyboardButton(label, callback_data=cb))
+        rows.append(row)
+
+    if over:
+        rows.append([InlineKeyboardButton("🔄", callback_data=f"ttt_restart:{owner_id}")])
+    rows.append([InlineKeyboardButton("↩", callback_data=f"games:{owner_id}")])
+    return InlineKeyboardMarkup(rows)
 
 
 async def show_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -251,6 +282,17 @@ async def build_admin_list_text(context: ContextTypes.DEFAULT_TYPE, lang: str) -
     return "\n".join(lines)
 
 
+def ttt_result_text(board: list[str], lang: str) -> str | None:
+    winner = check_winner(board)
+    if winner == "X":
+        return t("ttt_win", lang)
+    if winner == "O":
+        return t("ttt_lose", lang)
+    if winner == "draw":
+        return t("ttt_draw", lang)
+    return None
+
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     clicker_id = query.from_user.id
@@ -263,6 +305,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     await query.answer()
+    chat_id = query.message.chat.id
 
     if action == "back":
         await query.edit_message_text(t("panel_intro", lang), reply_markup=build_main_keyboard(owner_id, lang))
@@ -279,7 +322,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     if action in ("leaderboard_total", "leaderboard_today"):
         scope = "total" if action == "leaderboard_total" else "today"
-        text = await build_leaderboard_text(context, query.message.chat.id, lang, scope)
+        text = await build_leaderboard_text(context, chat_id, lang, scope)
         await query.edit_message_text(text, reply_markup=build_leaderboard_keyboard(owner_id, lang, scope), parse_mode="HTML")
         return
 
@@ -335,6 +378,39 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await query.edit_message_text(t("reset_admins_done", lang), reply_markup=build_back_keyboard(owner_id, lang))
         return
 
+    if action == "games":
+        await query.edit_message_text(t("games_menu_intro", lang), reply_markup=build_games_menu_keyboard(owner_id, lang))
+        return
+
+    if action == "ttt_start" or action == "ttt_restart":
+        board = start_game(chat_id, owner_id)
+        await query.edit_message_text(t("ttt_turn", lang), reply_markup=build_ttt_keyboard(board, owner_id, over=False))
+        return
+
+    if action == "ttt_noop":
+        return
+
+    if action.startswith("ttt_move_"):
+        index = int(action.split("_")[-1])
+        board = apply_user_move(chat_id, owner_id, index)
+        if board is None:
+            return
+
+        result = ttt_result_text(board, lang)
+        if result is not None:
+            end_game(chat_id, owner_id)
+            await query.edit_message_text(result, reply_markup=build_ttt_keyboard(board, owner_id, over=True))
+            return
+
+        bot_move(board)
+        result = ttt_result_text(board, lang)
+        if result is not None:
+            end_game(chat_id, owner_id)
+            await query.edit_message_text(result, reply_markup=build_ttt_keyboard(board, owner_id, over=True))
+        else:
+            await query.edit_message_text(t("ttt_turn", lang), reply_markup=build_ttt_keyboard(board, owner_id, over=False))
+        return
+
     if action == "ai":
         text = t("ai_section_text", lang) if (is_main_owner(owner_id) or is_owner(owner_id)) else t("ai_access_denied", lang)
         await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id, lang))
@@ -357,7 +433,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     if action == "settings_memory_reset":
-        clear_chat_memory(query.message.chat.id)
+        clear_chat_memory(chat_id)
         await query.edit_message_text(t("memory_reset_done", lang), reply_markup=build_back_keyboard(owner_id, lang))
         return
 
