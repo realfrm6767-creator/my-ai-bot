@@ -11,6 +11,7 @@ import config
 from permissions import (
     is_main_owner, is_owner, is_admin,
     add_owner, remove_owner, add_admin, remove_admin,
+    get_owners, get_admins, reset_owners, reset_admins,
 )
 from settings import load_settings, update_setting
 from utils.stats import record_message, get_user_stats, get_leaderboard
@@ -21,6 +22,7 @@ from utils.locales import t, get_role_commands, get_panel_trigger, SUPPORTED_LAN
 
 WAKE_WORDS = ["گابیمارو", "گابی"]
 FULLWIDTH_DIGITS = str.maketrans("0123456789", "０１２３４５６７８９")
+SEPARATOR = "--------------"
 
 
 def get_current_language() -> str:
@@ -67,6 +69,9 @@ def build_main_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
             InlineKeyboardButton(t("btn_leaderboard", lang), callback_data=f"leaderboard_total:{owner_id}"),
             InlineKeyboardButton(t("btn_status", lang), callback_data=f"status:{owner_id}"),
         ],
+        [
+            InlineKeyboardButton(t("btn_admin_list", lang), callback_data=f"admin_list:{owner_id}"),
+        ],
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -98,6 +103,25 @@ def build_leaderboard_keyboard(owner_id: int, lang: str, current_scope: str) -> 
     keyboard = [
         [InlineKeyboardButton(f"🔄 {other_label}", callback_data=f"leaderboard_{other_scope}:{owner_id}")],
         [InlineKeyboardButton(t("btn_back", lang), callback_data=f"back:{owner_id}")],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def build_admin_list_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
+    keyboard = [
+        [InlineKeyboardButton(t("btn_reset_owners", lang), callback_data=f"confirm_reset_owners:{owner_id}")],
+        [InlineKeyboardButton(t("btn_reset_admins", lang), callback_data=f"confirm_reset_admins:{owner_id}")],
+        [InlineKeyboardButton(t("btn_back", lang), callback_data=f"back:{owner_id}")],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def build_confirm_keyboard(owner_id: int, lang: str, target: str) -> InlineKeyboardMarkup:
+    keyboard = [
+        [
+            InlineKeyboardButton(t("btn_confirm_yes", lang), callback_data=f"do_reset_{target}:{owner_id}"),
+            InlineKeyboardButton(t("btn_confirm_no", lang), callback_data=f"admin_list:{owner_id}"),
+        ],
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -184,6 +208,49 @@ async def build_leaderboard_text(context: ContextTypes.DEFAULT_TYPE, chat_id: in
     return header + "\n".join(lines)
 
 
+async def build_person_block(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> str:
+    try:
+        user = await context.bot.get_chat(user_id)
+        name = user.first_name or str(user_id)
+    except Exception:
+        name = str(user_id)
+    mention = f'<a href="tg://user?id={user_id}">{name}</a>'
+    id_code = f"<code>{user_id}</code>"
+    return f"{mention}\n{id_code}"
+
+
+async def build_admin_list_text(context: ContextTypes.DEFAULT_TYPE, lang: str) -> str:
+    lines = [f"👥 {t('admin_list_header', lang)}", ""]
+
+    lines.append(f"— {t('admin_list_main_owner_label', lang)} —")
+    lines.append(await build_person_block(context, config.OWNER_ID))
+    lines.append(SEPARATOR)
+
+    owners = get_owners()
+    lines.append(f"— {t('admin_list_owners_label', lang)} —")
+    if owners:
+        for uid in owners:
+            lines.append(await build_person_block(context, uid))
+            lines.append(SEPARATOR)
+    else:
+        lines.append(t("admin_list_none", lang))
+        lines.append(SEPARATOR)
+
+    admins = get_admins()
+    lines.append(f"— {t('admin_list_admins_label', lang)} —")
+    if admins:
+        for uid in admins:
+            lines.append(await build_person_block(context, uid))
+            lines.append(SEPARATOR)
+    else:
+        lines.append(t("admin_list_none", lang))
+
+    if lines[-1] == SEPARATOR:
+        lines.pop()
+
+    return "\n".join(lines)
+
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     clicker_id = query.from_user.id
@@ -228,6 +295,44 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             f"◂ {t('status_users', lang)} : {format_number(data['total_users'], lang)}"
         )
         await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id, lang))
+        return
+
+    if action == "admin_list":
+        if not (is_main_owner(owner_id) or is_owner(owner_id) or is_admin(owner_id)):
+            await query.edit_message_text(t("settings_access_denied", lang), reply_markup=build_back_keyboard(owner_id, lang))
+            return
+        text = await build_admin_list_text(context, lang)
+        await query.edit_message_text(text, reply_markup=build_admin_list_keyboard(owner_id, lang), parse_mode="HTML")
+        return
+
+    if action == "confirm_reset_owners":
+        if not is_main_owner(owner_id):
+            await query.edit_message_text(t("reset_access_denied_owners", lang), reply_markup=build_back_keyboard(owner_id, lang))
+            return
+        await query.edit_message_text(t("confirm_reset_owners_question", lang), reply_markup=build_confirm_keyboard(owner_id, lang, "owners"))
+        return
+
+    if action == "confirm_reset_admins":
+        if not (is_main_owner(owner_id) or is_owner(owner_id)):
+            await query.edit_message_text(t("reset_access_denied_admins", lang), reply_markup=build_back_keyboard(owner_id, lang))
+            return
+        await query.edit_message_text(t("confirm_reset_admins_question", lang), reply_markup=build_confirm_keyboard(owner_id, lang, "admins"))
+        return
+
+    if action == "do_reset_owners":
+        if not is_main_owner(owner_id):
+            await query.edit_message_text(t("reset_access_denied_owners", lang), reply_markup=build_back_keyboard(owner_id, lang))
+            return
+        reset_owners()
+        await query.edit_message_text(t("reset_owners_done", lang), reply_markup=build_back_keyboard(owner_id, lang))
+        return
+
+    if action == "do_reset_admins":
+        if not (is_main_owner(owner_id) or is_owner(owner_id)):
+            await query.edit_message_text(t("reset_access_denied_admins", lang), reply_markup=build_back_keyboard(owner_id, lang))
+            return
+        reset_admins()
+        await query.edit_message_text(t("reset_admins_done", lang), reply_markup=build_back_keyboard(owner_id, lang))
         return
 
     if action == "ai":
