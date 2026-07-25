@@ -1,32 +1,50 @@
 """
 ai.py
 -----
-اتصال به سرویس هوش مصنوعی Groq. زبان پاسخ همیشه بر اساس تنظیم
-زبان ربات است، نه زبان پیام کاربر.
+هماهنگ‌کننده (Dispatcher) بین provider های مختلف هوش مصنوعی.
+بر اساس تنظیم provider در settings.json (groq / gemini / auto)
+درخواست را به provider مناسب می‌فرستد.
 """
-
-from groq import Groq
 
 import config
 from settings import load_settings
 from utils.locales import get_system_prompt, t
+from providers import groq_provider, gemini_provider
 
-_client = Groq(api_key=config.GROQ_API_KEY)
+CODE_KEYWORDS = [
+    "کد", "برنامه", "پایتون", "python", "کدنویسی", "تابع", "function",
+    "bug", "دیباگ", "الگوریتم", "javascript", "html", "css", "sql",
+]
+
+ANALYTICAL_KEYWORDS = [
+    "تحلیل", "مقایسه", "توضیح بده", "چرا", "علت", "بررسی", "خلاصه",
+    "explain", "analyze", "compare", "summarize",
+]
+
+
+def _pick_auto_provider(user_message: str) -> str:
+    lowered = user_message.lower()
+    is_code = any(k in lowered for k in CODE_KEYWORDS)
+    is_analytical = any(k in lowered for k in ANALYTICAL_KEYWORDS)
+    is_long = len(user_message) > 200
+
+    if is_code or is_analytical or is_long:
+        return "gemini"
+    return "groq"
 
 
 def generate_response(user_message: str, history: list[dict] | None = None) -> str:
     settings = load_settings()
-    model = settings.get("model", config.DEFAULT_MODEL)
+    provider = settings.get("provider", config.DEFAULT_PROVIDER)
     temperature = settings.get("temperature", config.DEFAULT_TEMPERATURE)
     lang = settings.get("language", config.DEFAULT_LANGUAGE)
+    system_prompt = get_system_prompt(lang)
 
-    messages = [{"role": "system", "content": get_system_prompt(lang)}]
-    if history:
-        messages.extend(history)
-    messages.append({"role": "user", "content": user_message or "hi"})
+    active_provider = _pick_auto_provider(user_message) if provider == "auto" else provider
 
     try:
-        completion = _client.chat.completions.create(model=model, temperature=temperature, messages=messages)
-        return completion.choices[0].message.content.strip()
+        if active_provider == "gemini":
+            return gemini_provider.generate(system_prompt, user_message, history, temperature)
+        return groq_provider.generate(system_prompt, user_message, history, temperature)
     except Exception:
         return t("ai_error", lang)
