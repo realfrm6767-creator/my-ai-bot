@@ -33,19 +33,30 @@ def _pick_auto_provider(user_message: str) -> str:
     return "groq"
 
 
-def generate_response(user_message: str, history: list[dict] | None = None) -> str:
+def generate_response(
+    user_message: str,
+    history: list[dict] | None = None,
+    quoted_message: str | None = None,
+) -> str:
     settings = load_settings()
     provider = settings.get("provider", config.DEFAULT_PROVIDER)
     temperature = settings.get("temperature", config.DEFAULT_TEMPERATURE)
     lang = settings.get("language", config.DEFAULT_LANGUAGE)
     system_prompt = get_system_prompt(lang)
 
+    final_message = user_message
+    if quoted_message:
+        final_message = (
+            f"[پیامی که کاربر روی آن ریپلای کرده: \"{quoted_message}\"]\n"
+            f"پیام کاربر: {user_message}"
+        )
+
     active_provider = _pick_auto_provider(user_message) if provider == "auto" else provider
 
     try:
         if active_provider == "gemini":
-            return gemini_provider.generate(system_prompt, user_message, history, temperature)
-        return groq_provider.generate(system_prompt, user_message, history, temperature)
+            return gemini_provider.generate(system_prompt, final_message, history, temperature)
+        return groq_provider.generate(system_prompt, final_message, history, temperature)
     except Exception:
         print(f"=== AI ERROR (provider={active_provider}) ===")
         print(traceback.format_exc())
