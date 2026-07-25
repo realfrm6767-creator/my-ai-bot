@@ -2,9 +2,9 @@
 ai.py
 -----
 هماهنگ‌کننده (Dispatcher) بین provider های مختلف هوش مصنوعی.
-بر اساس تنظیم provider در settings.json (groq / gemini / auto)
-درخواست را به provider مناسب می‌فرستد.
 """
+
+import traceback
 
 import config
 from settings import load_settings
@@ -47,4 +47,7 @@ def generate_response(user_message: str, history: list[dict] | None = None) -> s
             return gemini_provider.generate(system_prompt, user_message, history, temperature)
         return groq_provider.generate(system_prompt, user_message, history, temperature)
     except Exception:
+        print(f"=== AI ERROR (provider={active_provider}) ===")
+        print(traceback.format_exc())
+        print("=== END AI ERROR ===")
         return t("ai_error", lang)
