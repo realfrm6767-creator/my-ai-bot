@@ -82,6 +82,11 @@ def build_back_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_back", lang), callback_data=f"back:{owner_id}")]])
 
 
+def build_target_back_keyboard(owner_id: int, lang: str, target: str) -> InlineKeyboardMarkup:
+    """کیبورد بازگشت به یک صفحه‌ی مشخص (نه صفحه اصلی)."""
+    return InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_back", lang), callback_data=f"{target}:{owner_id}")]])
+
+
 def build_settings_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
     memory_label = t("btn_memory_on", lang) if is_memory_enabled() else t("btn_memory_off", lang)
     keyboard = [
@@ -159,9 +164,9 @@ def build_ttt_keyboard(board: list[str], owner_id: int, over: bool) -> InlineKey
 
 def build_ai_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
     keyboard = [
+        [InlineKeyboardButton(t("btn_provider_auto", lang), callback_data=f"setprovider_auto:{owner_id}")],
         [InlineKeyboardButton(t("btn_provider_groq", lang), callback_data=f"setprovider_groq:{owner_id}")],
         [InlineKeyboardButton(t("btn_provider_gemini", lang), callback_data=f"setprovider_gemini:{owner_id}")],
-        [InlineKeyboardButton(t("btn_provider_auto", lang), callback_data=f"setprovider_auto:{owner_id}")],
         [InlineKeyboardButton(t("btn_back", lang), callback_data=f"back:{owner_id}")],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -377,7 +382,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await query.edit_message_text(t("reset_access_denied_owners", lang), reply_markup=build_back_keyboard(owner_id, lang))
             return
         reset_owners()
-        await query.edit_message_text(t("reset_owners_done", lang), reply_markup=build_back_keyboard(owner_id, lang))
+        await query.edit_message_text(t("reset_owners_done", lang), reply_markup=build_target_back_keyboard(owner_id, lang, "admin_list"))
         return
 
     if action == "do_reset_admins":
@@ -385,7 +390,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await query.edit_message_text(t("reset_access_denied_admins", lang), reply_markup=build_back_keyboard(owner_id, lang))
             return
         reset_admins()
-        await query.edit_message_text(t("reset_admins_done", lang), reply_markup=build_back_keyboard(owner_id, lang))
+        await query.edit_message_text(t("reset_admins_done", lang), reply_markup=build_target_back_keyboard(owner_id, lang, "admin_list"))
         return
 
     if action == "games":
@@ -422,7 +427,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     if action == "ai":
-        if not (is_main_owner(owner_id) or is_owner(owner_id)):
+        if not is_main_owner(owner_id):
             await query.edit_message_text(t("ai_access_denied", lang), reply_markup=build_back_keyboard(owner_id, lang))
             return
         current_provider = load_settings().get("provider", "groq")
@@ -432,12 +437,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     if action.startswith("setprovider_"):
         provider = action.split("_", 1)[1]
-        if not (is_main_owner(owner_id) or is_owner(owner_id)):
+        if not is_main_owner(owner_id):
             await query.edit_message_text(t("ai_access_denied", lang), reply_markup=build_back_keyboard(owner_id, lang))
             return
         update_setting("provider", provider)
         text = t("provider_set_confirm", lang).format(provider=provider)
-        await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id, lang))
+        await query.edit_message_text(text, reply_markup=build_target_back_keyboard(owner_id, lang, "ai"))
         return
 
     if action == "settings":
@@ -458,7 +463,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     if action == "settings_memory_reset":
         clear_chat_memory(chat_id)
-        await query.edit_message_text(t("memory_reset_done", lang), reply_markup=build_back_keyboard(owner_id, lang))
+        await query.edit_message_text(t("memory_reset_done", lang), reply_markup=build_target_back_keyboard(owner_id, lang, "settings"))
         return
 
     if action.startswith("setlang_"):
@@ -466,7 +471,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if code in SUPPORTED_LANGUAGES:
             update_setting("language", code)
             confirm = t("language_set_confirm", code).format(lang=LANGUAGE_NAMES[code])
-            await query.edit_message_text(confirm, reply_markup=build_back_keyboard(owner_id, code))
+            await query.edit_message_text(confirm, reply_markup=build_target_back_keyboard(owner_id, code, "settings_language"))
         return
 
     await query.edit_message_text("Unknown section.", reply_markup=build_back_keyboard(owner_id, lang))
