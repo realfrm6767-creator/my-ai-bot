@@ -555,13 +555,20 @@ async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     user_id = update.effective_user.id
     message_for_ai = content if content else text
 
+    quoted_message = None
+    if replied_to_bot and update.message.reply_to_message.text:
+        quoted_message = update.message.reply_to_message.text
+
     memory_on = is_memory_enabled()
     history = get_history(chat_id, user_id) if memory_on else None
 
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-    ai_reply = generate_response(message_for_ai, history)
+    ai_reply = generate_response(message_for_ai, history, quoted_message)
     await update.message.reply_text(ai_reply)
 
     if memory_on:
         add_message(chat_id, user_id, "user", message_for_ai)
         add_message(chat_id, user_id, "assistant", ai_reply)
+
+
+# TODO (آینده): افزودن دکمه‌های جدید به build_main_keyboard()
