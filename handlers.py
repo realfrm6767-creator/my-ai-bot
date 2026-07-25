@@ -157,6 +157,16 @@ def build_ttt_keyboard(board: list[str], owner_id: int, over: bool) -> InlineKey
     return InlineKeyboardMarkup(rows)
 
 
+def build_ai_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
+    keyboard = [
+        [InlineKeyboardButton(t("btn_provider_groq", lang), callback_data=f"setprovider_groq:{owner_id}")],
+        [InlineKeyboardButton(t("btn_provider_gemini", lang), callback_data=f"setprovider_gemini:{owner_id}")],
+        [InlineKeyboardButton(t("btn_provider_auto", lang), callback_data=f"setprovider_auto:{owner_id}")],
+        [InlineKeyboardButton(t("btn_back", lang), callback_data=f"back:{owner_id}")],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
 async def show_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     owner_id = update.effective_user.id
     lang = get_current_language()
@@ -412,7 +422,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     if action == "ai":
-        text = t("ai_section_text", lang) if (is_main_owner(owner_id) or is_owner(owner_id)) else t("ai_access_denied", lang)
+        if not (is_main_owner(owner_id) or is_owner(owner_id)):
+            await query.edit_message_text(t("ai_access_denied", lang), reply_markup=build_back_keyboard(owner_id, lang))
+            return
+        current_provider = load_settings().get("provider", "groq")
+        text = f"{t('ai_menu_intro', lang)}\n\n{t('provider_current', lang).format(provider=current_provider)}"
+        await query.edit_message_text(text, reply_markup=build_ai_keyboard(owner_id, lang))
+        return
+
+    if action.startswith("setprovider_"):
+        provider = action.split("_", 1)[1]
+        if not (is_main_owner(owner_id) or is_owner(owner_id)):
+            await query.edit_message_text(t("ai_access_denied", lang), reply_markup=build_back_keyboard(owner_id, lang))
+            return
+        update_setting("provider", provider)
+        text = t("provider_set_confirm", lang).format(provider=provider)
         await query.edit_message_text(text, reply_markup=build_back_keyboard(owner_id, lang))
         return
 
