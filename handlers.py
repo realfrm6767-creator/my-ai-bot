@@ -83,7 +83,6 @@ def build_back_keyboard(owner_id: int, lang: str) -> InlineKeyboardMarkup:
 
 
 def build_target_back_keyboard(owner_id: int, lang: str, target: str) -> InlineKeyboardMarkup:
-    """کیبورد بازگشت به یک صفحه‌ی مشخص (نه صفحه اصلی)."""
     return InlineKeyboardMarkup([[InlineKeyboardButton(t("btn_back", lang), callback_data=f"{target}:{owner_id}")]])
 
 
@@ -528,7 +527,10 @@ async def handle_role_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    text = update.message.text or ""
+    if update.message is None or update.message.text is None:
+        return
+
+    text = update.message.text
     record_message(update.effective_chat.id, update.effective_user.id)
 
     wake_word_present = has_wake_word(text)
